@@ -1,0 +1,369 @@
+{
+  "properties": {
+    "df": {
+      "additionalProperties": false,
+      "properties": {
+        "file_path": {
+          "title": "File Path",
+          "type": "string",
+          "description": "Path to the file to load. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object",
+      "title": "Load File"
+    },
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Set Workflow Details"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Set Time Range"
+    },
+    "gee_connection": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/GoogleEarthEngineConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to Google Earth Engine"
+    },
+    "cloudfree_composites_2": {
+      "additionalProperties": false,
+      "properties": {
+        "sensor": {
+          "default": "Sentinel-2",
+          "enum": [
+            "Sentinel-2",
+            "Landsat"
+          ],
+          "title": "Sensor",
+          "type": "string",
+          "description": "Satellite platform"
+        },
+        "cloud_threshold": {
+          "default": 60.0,
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Cloud Threshold",
+          "type": "number",
+          "description": "Maximum scene cloud cover (%) for a scene to be used"
+        },
+        "reducer": {
+          "default": "median",
+          "enum": [
+            "median",
+            "mean",
+            "min",
+            "max"
+          ],
+          "title": "Reducer",
+          "type": "string",
+          "description": "Statistic used to aggregate clear pixels over time"
+        },
+        "bands": {
+          "default": [
+            "blue",
+            "green",
+            "red",
+            "nir",
+            "swir1",
+            "swir2"
+          ],
+          "items": {
+            "enum": [
+              "blue",
+              "green",
+              "red",
+              "nir",
+              "swir1",
+              "swir2"
+            ],
+            "type": "string"
+          },
+          "title": "Bands",
+          "type": "array",
+          "description": "Reflectance bands to include in the export"
+        },
+        "indices": {
+          "default": [
+            "NDVI"
+          ],
+          "items": {
+            "enum": [
+              "NDVI",
+              "EVI",
+              "SAVI",
+              "MSAVI",
+              "NDMI",
+              "NDWI",
+              "NBR",
+              "NDBI",
+              "NDSI",
+              "BSI"
+            ],
+            "type": "string"
+          },
+          "title": "Indices",
+          "type": "array",
+          "description": "Spectral indices to add as bands"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Export Cloudfree Composites"
+    },
+    "to_bitmap_layer": {
+      "additionalProperties": false,
+      "properties": {
+        "band": {
+          "default": "NDVI",
+          "title": "Band",
+          "type": "string",
+          "description": "Band to show, e.g. 'NDVI', 'nir' or 'valid_count'; or 'true_color' (red/green/blue) / 'false_color' (nir/red/green)."
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "custom": "#/$defs/CustomPalette",
+                  "palette": "#/$defs/ColormapPalette"
+                },
+                "propertyName": "type_"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ColormapPalette"
+                },
+                {
+                  "$ref": "#/$defs/CustomPalette"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Palette",
+          "description": "A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI."
+        },
+        "opacity": {
+          "default": 0.8,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opacity",
+          "type": "number",
+          "description": "Layer opacity"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Composite To Bitmap Layer"
+    }
+  },
+  "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "GoogleEarthEngineConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "GoogleEarthEngineConnection",
+      "type": "object"
+    },
+    "ColormapPalette": {
+      "properties": {
+        "type_": {
+          "const": "palette",
+          "default": "palette",
+          "enum": [
+            "palette"
+          ],
+          "title": "Type ",
+          "type": "string"
+        },
+        "name": {
+          "default": "viridis",
+          "description": "Matplotlib colormap name.",
+          "enum": [
+            "viridis",
+            "cividis",
+            "magma",
+            "inferno",
+            "plasma",
+            "Greens",
+            "YlGn",
+            "Blues",
+            "YlGnBu",
+            "Reds",
+            "YlOrRd",
+            "YlOrBr",
+            "Greys",
+            "gray",
+            "bone",
+            "RdYlGn",
+            "BrBG",
+            "RdBu",
+            "Spectral",
+            "PiYG",
+            "PuOr"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "description": "Flip the colormap so high values get the low-end colour.",
+          "title": "Reverse",
+          "type": "boolean"
+        }
+      },
+      "title": "ColormapPalette",
+      "type": "object"
+    },
+    "CustomPalette": {
+      "properties": {
+        "type_": {
+          "const": "custom",
+          "default": "custom",
+          "enum": [
+            "custom"
+          ],
+          "title": "Type ",
+          "type": "string"
+        },
+        "colors": {
+          "description": "Hex colours from low to high values, e.g. ['#f7fcb9', '#31a354'].",
+          "items": {
+            "type": "string"
+          },
+          "title": "Colors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "colors"
+      ],
+      "title": "CustomPalette",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone"
+      ]
+    },
+    "cloudfree_composites_2": {
+      "ui:order": [
+        "sensor",
+        "cloud_threshold",
+        "reducer",
+        "bands",
+        "indices"
+      ]
+    },
+    "to_bitmap_layer": {
+      "ui:order": [
+        "band",
+        "palette",
+        "opacity"
+      ]
+    },
+    "ui:order": [
+      "df",
+      "workflow_details",
+      "time_range",
+      "gee_connection",
+      "cloudfree_composites_2",
+      "to_bitmap_layer"
+    ]
+  },
+  "additionalProperties": false
+}

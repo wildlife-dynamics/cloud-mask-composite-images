@@ -1,0 +1,12 @@
+studio-run:
+  name: cloud-mask-composite-images (from Studio)
+  description: The values used with ▶ Run in Ecoscope Studio's designer.
+  params:
+    workflow_details:
+      name: jh
+    time_range:
+      since: '2026-09-01T11:09:53'
+      until: '2026-09-30T11:10:03'
+    gee_connection:
+      data_source:
+        name: Wildlife Dynamics Google Earth Engine

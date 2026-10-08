@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Guide · cloud-mask-composite-images</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="index.html">cloud-mask-composite-images</a>
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="user-guide.html" class="active">User Guide</a>
+        <a href="technical-guide.html">Technical Guide</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>User Guide</h1>
+    <p class="lede">How to load cloud-mask-composite-images, connect its data sources and fill in its settings.</p>
+
+    <h2>1. Load the workflow</h2>
+    <p>In the workflow runner, add a new template using this repository's URL, then select <strong>cloud-mask-composite-images</strong> from the templates list.</p>
+
+    <h2>2. Data sources</h2>
+    <ul><li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li></ul>
+
+    <h2>3. Settings</h2>
+    <p>The run form asks for these. Fields with a default can be left as they are.</p>
+    <h3>Load File</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>File Path <em>(required)</em></td><td>Path to the file to load. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp</td><td>—</td></tr></tbody>
+    </table>
+    <h3>Set Workflow Details</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Workflow Name <em>(required)</em></td><td></td><td>—</td></tr></tbody>
+    </table>
+    <h3>Set Time Range</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Since <em>(required)</em></td><td>The start time</td><td>—</td></tr><tr><td>Until <em>(required)</em></td><td>The end time</td><td>—</td></tr><tr><td>Timezone</td><td></td><td>—</td></tr></tbody>
+    </table>
+    <h3>Connect to Google Earth Engine</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Data source <em>(required)</em></td><td>Select one of your configured data sources.</td><td>—</td></tr></tbody>
+    </table>
+    <h3>Export Cloudfree Composites</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Sensor</td><td>Satellite platform</td><td><code>Sentinel-2</code></td></tr><tr><td>Cloud Threshold</td><td>Maximum scene cloud cover (%) for a scene to be used</td><td><code>60.0</code></td></tr><tr><td>Reducer</td><td>Statistic used to aggregate clear pixels over time</td><td><code>median</code></td></tr><tr><td>Bands</td><td>Reflectance bands to include in the export</td><td><code>[&quot;blue&quot;, &quot;green&quot;, &quot;red&quot;, &quot;nir&quot;, &quot;swir1&quot;, &quot;swir2&quot;]</code></td></tr><tr><td>Indices</td><td>Spectral indices to add as bands</td><td><code>[&quot;NDVI&quot;]</code></td></tr></tbody>
+    </table>
+    <h3>Composite To Bitmap Layer</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Band</td><td>Band to show, e.g. &#x27;NDVI&#x27;, &#x27;nir&#x27; or &#x27;valid_count&#x27;; or &#x27;true_color&#x27; (red/green/blue) / &#x27;false_color&#x27; (nir/red/green).</td><td><code>NDVI</code></td></tr><tr><td>Palette</td><td>A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI.</td><td>—</td></tr><tr><td>Opacity</td><td>Layer opacity</td><td><code>0.8</code></td></tr></tbody>
+    </table>
+
+    <h2>4. Run it and find the results</h2>
+    <p>The workflow writes its files to the results folder the runner gives it (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>), and shows its dashboard when it finishes.</p>
+  </main>
+
+  <footer class="site-footer">
+    <p>cloud-mask-composite-images &middot; Wildlife Dynamics</p>
+  </footer>
+</body>
+</html>

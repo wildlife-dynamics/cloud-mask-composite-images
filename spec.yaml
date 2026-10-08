@@ -1,0 +1,150 @@
+# Written by Ecoscope Studio from the design “cloud-mask-composite-images”. Edit it in Studio's designer;
+# changes made here are replaced the next time the design is saved.
+id: cloud_mask_composite_images
+requirements:
+- name: ecoscope-platform
+  version: ==2.18.0
+  channel: https://repo.prefix.dev/ecoscope-workflows/
+- name: ecoscope-workflows-ext-custom
+  version: ==0.1.0rc14
+  channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+- name: ecoscope-workflows-ext-ste
+  version: ==0.0.0rc1
+  channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+- name: ecoscope-workflows-ext-mnc
+  version: ==1.0.5
+  channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+- name: pydeck
+  version: ==0.9.2
+  channel: conda-forge
+- name: ecoscope-workflows-ext-mep
+  version: ==1.0.5
+  channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+task-instance-defaults:
+  skipif:
+    conditions:
+    - any_is_empty_df
+    - any_dependency_skipped
+workflow:
+- name: Load File
+  id: df
+  task: load_df
+  partial:
+    layer: null
+    deserialize_json: false
+- name: Set Base Maps
+  id: base_maps
+  task: set_base_maps
+  partial:
+    base_maps:
+    - url: https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}
+      opacity: 1
+      max_zoom: 20
+      min_zoom: 0
+    - url: https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
+      opacity: 0.5
+      max_zoom: 20
+      min_zoom: 0
+- name: Set Workflow Details
+  id: workflow_details
+  task: set_workflow_details
+  partial:
+    description: ''
+- name: Set Groupers
+  id: groupers
+  task: set_groupers
+  partial:
+    groupers: null
+- name: Set Time Range
+  id: time_range
+  task: set_time_range
+  partial:
+    time_format: '%d %b %Y %H:%M:%S'
+- name: Connect to Google Earth Engine
+  id: gee_connection
+  task: set_gee_connection
+- name: Fix Invalid Geometries
+  id: invalid_geometries
+  task: fix_invalid_geometries
+  partial:
+    gdf: ${{ workflow.df.return }}
+- name: Reproject Gdf
+  id: gdf
+  task: reproject_gdf
+  partial:
+    gdf: ${{ workflow.invalid_geometries.return }}
+    target_crs: 4326
+- name: View State From Geodataframes
+  id: state_from_geodataframes
+  task: ecoscope.platform.tasks.results.view_state_from_geodataframes
+  partial:
+    geodataframes:
+    - ${{ workflow.gdf.return }}
+    max_zoom: 20
+- name: Export Cloudfree Composites
+  id: cloudfree_composites_2
+  task: export_cloudfree_composites
+  partial:
+    root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+    client: ${{ workflow.gee_connection.return }}
+    roi: ${{ workflow.gdf.return }}
+    time_range: ${{ workflow.time_range.return }}
+    scale: null
+    crs: null
+- name: Composite To Bitmap Layer
+  id: to_bitmap_layer
+  task: composite_to_bitmap_layer
+  partial:
+    composite_path: ${{ workflow.cloudfree_composites_2.return }}
+    vmin: null
+    vmax: null
+    max_size: 2048
+- name: Merge Tile Layers
+  id: tile_layers
+  task: ecoscope.platform.tasks.results.merge_tile_layers
+  partial:
+    overlay: ${{ workflow.to_bitmap_layer.return }}
+    base_layers: ${{ workflow.base_maps.return }}
+- name: Draw Map
+  id: composite_map
+  task: ecoscope.platform.tasks.results.draw_map
+  partial:
+    tile_layers: ${{ workflow.tile_layers.return }}
+    view_state: ${{ workflow.state_from_geodataframes.return }}
+    static: false
+    output_type: html
+    title: ''
+    legend_style:
+      placement: bottom-right
+      format_title: false
+    max_zoom: 20
+- name: Persist Text
+  id: text
+  task: persist_text
+  partial:
+    root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+    text: ${{ workflow.composite_map.return }}
+- name: Create Map Widget Single View
+  id: map_widget_single_view
+  task: create_map_widget_single_view
+  partial:
+    data: ${{ workflow.text.return }}
+    title: Map
+- name: Gather Dashboard
+  id: dashboard
+  task: gather_dashboard
+  partial:
+    widgets:
+    - ${{ workflow.map_widget_single_view.return }}
+    details: ${{ workflow.workflow_details.return }}
+    groupers: ${{ workflow.groupers.return }}
+    time_range: ${{ workflow.time_range.return }}
+rjsf-overrides:
+  uiSchema:
+    ui:order:
+    - workflow_details
+    - gee_connection
+    - time_range
+    - df
+    - cloudfree_composites_2
+    - to_bitmap_layer

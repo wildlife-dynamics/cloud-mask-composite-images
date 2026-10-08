@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technical Guide · cloud-mask-composite-images</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="index.html">cloud-mask-composite-images</a>
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="user-guide.html">User Guide</a>
+        <a href="technical-guide.html" class="active">Technical Guide</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Technical Guide</h1>
+    <p class="lede">The steps cloud-mask-composite-images runs, the packages they come from, and how to recompile and test it.</p>
+
+    <h2>Steps</h2>
+    <p>In the order they run. Each step is a task from one of the packages below.</p>
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Task</th><th>Group</th><th>What it does</th></tr></thead>
+      <tbody><tr><td>1</td><td><strong>Load File</strong></td><td><code>load_df</code></td><td></td><td>Load a DataFrame or GeoDataFrame from various file formats.</td></tr><tr><td>2</td><td><strong>Set Base Maps</strong></td><td><code>set_base_maps</code></td><td></td><td></td></tr><tr><td>3</td><td><strong>Set Workflow Details</strong></td><td><code>set_workflow_details</code></td><td></td><td>Add information that will help to differentiate this workflow from another.</td></tr><tr><td>4</td><td><strong>Set Groupers</strong></td><td><code>set_groupers</code></td><td></td><td></td></tr><tr><td>5</td><td><strong>Set Time Range</strong></td><td><code>set_time_range</code></td><td></td><td>Choose the period of time to analyze.</td></tr><tr><td>6</td><td><strong>Connect to Google Earth Engine</strong></td><td><code>set_gee_connection</code></td><td></td><td></td></tr><tr><td>7</td><td><strong>Fix Invalid Geometries</strong></td><td><code>fix_invalid_geometries</code></td><td></td><td>Repair invalid geometries (e.g. self-intersecting polygons) in place.</td></tr><tr><td>8</td><td><strong>Reproject Gdf</strong></td><td><code>reproject_gdf</code></td><td></td><td></td></tr><tr><td>9</td><td><strong>View State From Geodataframes</strong></td><td><code>ecoscope.platform.tasks.results.view_state_from_geodataframes</code></td><td></td><td></td></tr><tr><td>10</td><td><strong>Export Cloudfree Composites</strong></td><td><code>export_cloudfree_composites</code></td><td></td><td>Build one cloud-free composite over the ROI for the time range, write it as a GeoTIFF and return its path.</td></tr><tr><td>11</td><td><strong>Composite To Bitmap Layer</strong></td><td><code>composite_to_bitmap_layer</code></td><td></td><td>Colour one band (or an RGB band combination) of a composite and return it as a map overlay.</td></tr><tr><td>12</td><td><strong>Merge Tile Layers</strong></td><td><code>ecoscope.platform.tasks.results.merge_tile_layers</code></td><td></td><td>Merges static base tile layers with a per-group overlay into a single list.</td></tr><tr><td>13</td><td><strong>Draw Map</strong></td><td><code>ecoscope.platform.tasks.results.draw_map</code></td><td></td><td>Creates a map based on the provided layer definitions and configuration.</td></tr><tr><td>14</td><td><strong>Persist Text</strong></td><td><code>persist_text</code></td><td></td><td>Persist text to a file or cloud storage object.</td></tr><tr><td>15</td><td><strong>Create Map Widget Single View</strong></td><td><code>create_map_widget_single_view</code></td><td></td><td>Create a map widget with a single view.</td></tr><tr><td>16</td><td><strong>Gather Dashboard</strong></td><td><code>gather_dashboard</code></td><td></td><td></td></tr></tbody>
+    </table>
+
+    <h2>Task packages</h2>
+    <table>
+      <thead><tr><th>Package</th><th>Version</th><th>Channel</th></tr></thead>
+      <tbody><tr><td><code>ecoscope-platform</code></td><td>==2.18.0</td><td>https://repo.prefix.dev/ecoscope-workflows/</td></tr><tr><td><code>ecoscope-workflows-ext-custom</code></td><td>==0.1.0rc14</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>ecoscope-workflows-ext-ste</code></td><td>==0.0.0rc1</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>ecoscope-workflows-ext-mnc</code></td><td>==1.0.5</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>pydeck</code></td><td>==0.9.2</td><td>conda-forge</td></tr><tr><td><code>ecoscope-workflows-ext-mep</code></td><td>==1.0.5</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr></tbody>
+    </table>
+
+    <h2>Recompiling</h2>
+    <p><code>spec.yaml</code> is the source; <code>ecoscope-workflows-cloud-mask-composite-images-workflow/</code> is generated from it by wt-compiler.</p>
+    <pre><code>./dev/recompile.sh --update   # keeps the lock file and bumps VERSION.yaml
+./dev/recompile.sh --install  # a new lock file, and the packages installed</code></pre>
+
+    <h2>Testing</h2>
+    <p>Each case in <code>test-cases.yaml</code> runs the workflow with its settings:</p>
+    <pre><code>pixi run --manifest-path pixi.toml -e default bash dev/pytest-cli.sh cloud_mask_composite_images --all</code></pre>
+  </main>
+
+  <footer class="site-footer">
+    <p>cloud-mask-composite-images &middot; Wildlife Dynamics</p>
+  </footer>
+</body>
+</html>
