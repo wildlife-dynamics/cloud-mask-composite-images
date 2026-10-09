@@ -21,29 +21,227 @@
 
   <main>
     <h1>Technical Guide</h1>
-    <p class="lede">The steps cloud-mask-composite-images runs, the packages they come from, and how to recompile and test it.</p>
+    <p class="lede">How cloud-mask-composite-images turns an area of interest and a time range into a cloud-free satellite composite: the steps it runs, how it masks clouds and builds the composite, how the GeoTIFF is encoded, and how the map overlay is rendered.</p>
 
-    <h2>Steps</h2>
-    <p>In the order they run. Each step is a task from one of the packages below.</p>
+    <h2>Contents</h2>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#steps">Steps</a></li>
+      <li><a href="#scenes">Scene selection and cloud masking</a></li>
+      <li><a href="#compositing">Compositing</a></li>
+      <li><a href="#indices">Spectral indices</a></li>
+      <li><a href="#geotiff">The GeoTIFF</a></li>
+      <li><a href="#download">Downloading from Earth Engine</a></li>
+      <li><a href="#rendering">Rendering the map overlay</a></li>
+      <li><a href="#fixed">Settings fixed in the spec</a></li>
+      <li><a href="#packages">Task packages</a></li>
+      <li><a href="#recompiling">Recompiling</a></li>
+      <li><a href="#testing">Testing</a></li>
+    </ul>
+
+    <h2 id="overview">Overview</h2>
+    <p>The workflow is a Python port of the <a href="https://github.com/EcoDynIZW/GEE-PICX">GEE-PICX</a> approach. In outline:</p>
+    <ol>
+      <li>Read the area of interest (ROI) from a vector file, repair its geometries and merge every feature into one shape.</li>
+      <li>On Google Earth Engine, find the Sentinel-2 or Landsat scenes that overlap the ROI in the time range and are under the scene cloud-cover threshold.</li>
+      <li>Mask clouds, cloud shadow and cirrus pixel by pixel in each scene, using the sensor's own quality band.</li>
+      <li>Reduce the remaining clear pixels over time to one value per pixel (median by default). Add any spectral indices and a <code>valid_count</code> band.</li>
+      <li>Download the composite tile by tile and write it to one GeoTIFF in the results folder.</li>
+      <li>Colour one band (or a true/false-colour combination), lay it over the base maps, and show it on the dashboard.</li>
+    </ol>
+    <p>Unlike GEE-PICX, which exports to Google Drive in the background, this workflow downloads the composite while it runs. The GeoTIFF is in the results folder when the run finishes.</p>
+
+    <h2 id="steps">Steps</h2>
+    <p>In the order they run. Each step is a task from one of the <a href="#packages">packages below</a>. Every step is skipped if the ROI file is empty or a step it depends on was skipped.</p>
     <table>
-      <thead><tr><th>#</th><th>Step</th><th>Task</th><th>Group</th><th>What it does</th></tr></thead>
-      <tbody><tr><td>1</td><td><strong>Load File</strong></td><td><code>load_df</code></td><td></td><td>Load a DataFrame or GeoDataFrame from various file formats.</td></tr><tr><td>2</td><td><strong>Set Base Maps</strong></td><td><code>set_base_maps</code></td><td></td><td></td></tr><tr><td>3</td><td><strong>Set Workflow Details</strong></td><td><code>set_workflow_details</code></td><td></td><td>Add information that will help to differentiate this workflow from another.</td></tr><tr><td>4</td><td><strong>Set Groupers</strong></td><td><code>set_groupers</code></td><td></td><td></td></tr><tr><td>5</td><td><strong>Set Time Range</strong></td><td><code>set_time_range</code></td><td></td><td>Choose the period of time to analyze.</td></tr><tr><td>6</td><td><strong>Connect to Google Earth Engine</strong></td><td><code>set_gee_connection</code></td><td></td><td></td></tr><tr><td>7</td><td><strong>Fix Invalid Geometries</strong></td><td><code>fix_invalid_geometries</code></td><td></td><td>Repair invalid geometries (e.g. self-intersecting polygons) in place.</td></tr><tr><td>8</td><td><strong>Reproject Gdf</strong></td><td><code>reproject_gdf</code></td><td></td><td></td></tr><tr><td>9</td><td><strong>View State From Geodataframes</strong></td><td><code>ecoscope.platform.tasks.results.view_state_from_geodataframes</code></td><td></td><td></td></tr><tr><td>10</td><td><strong>Export Cloudfree Composites</strong></td><td><code>export_cloudfree_composites</code></td><td></td><td>Build one cloud-free composite over the ROI for the time range, write it as a GeoTIFF and return its path.</td></tr><tr><td>11</td><td><strong>Composite To Bitmap Layer</strong></td><td><code>composite_to_bitmap_layer</code></td><td></td><td>Colour one band (or an RGB band combination) of a composite and return it as a map overlay.</td></tr><tr><td>12</td><td><strong>Merge Tile Layers</strong></td><td><code>ecoscope.platform.tasks.results.merge_tile_layers</code></td><td></td><td>Merges static base tile layers with a per-group overlay into a single list.</td></tr><tr><td>13</td><td><strong>Draw Map</strong></td><td><code>ecoscope.platform.tasks.results.draw_map</code></td><td></td><td>Creates a map based on the provided layer definitions and configuration.</td></tr><tr><td>14</td><td><strong>Persist Text</strong></td><td><code>persist_text</code></td><td></td><td>Persist text to a file or cloud storage object.</td></tr><tr><td>15</td><td><strong>Create Map Widget Single View</strong></td><td><code>create_map_widget_single_view</code></td><td></td><td>Create a map widget with a single view.</td></tr><tr><td>16</td><td><strong>Gather Dashboard</strong></td><td><code>gather_dashboard</code></td><td></td><td></td></tr></tbody>
+      <thead><tr><th>#</th><th>Step</th><th>Task</th><th>What it does here</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><strong>Load File</strong></td><td><code>load_df</code></td><td>Reads the ROI file (GeoParquet, GeoJSON, GeoPackage, Shapefile, …).</td></tr>
+        <tr><td>2</td><td><strong>Set Base Maps</strong></td><td><code>set_base_maps</code></td><td>Esri World Topo (opacity 1) under Esri World Imagery (opacity 0.5).</td></tr>
+        <tr><td>3</td><td><strong>Set Workflow Details</strong></td><td><code>set_workflow_details</code></td><td>The name shown on the dashboard.</td></tr>
+        <tr><td>4</td><td><strong>Set Groupers</strong></td><td><code>set_groupers</code></td><td>None: the dashboard has a single view.</td></tr>
+        <tr><td>5</td><td><strong>Set Time Range</strong></td><td><code>set_time_range</code></td><td>The period to composite.</td></tr>
+        <tr><td>6</td><td><strong>Connect to Google Earth Engine</strong></td><td><code>set_gee_connection</code></td><td>Returns an authenticated Earth Engine client from the chosen data source.</td></tr>
+        <tr><td>7</td><td><strong>Fix Invalid Geometries</strong></td><td><code>fix_invalid_geometries</code></td><td>Repairs self-intersecting or otherwise invalid polygons so the union in step 10 does not fail.</td></tr>
+        <tr><td>8</td><td><strong>Reproject Gdf</strong></td><td><code>reproject_gdf</code></td><td>Reprojects the ROI to EPSG:4326.</td></tr>
+        <tr><td>9</td><td><strong>View State From Geodataframes</strong></td><td><code>view_state_from_geodataframes</code></td><td>Centres and zooms the map on the ROI.</td></tr>
+        <tr><td>10</td><td><strong>Export Cloudfree Composites</strong></td><td><code>export_cloudfree_composites</code></td><td>Builds the composite on Earth Engine and writes the GeoTIFF. Returns its path.</td></tr>
+        <tr><td>11</td><td><strong>Composite To Bitmap Layer</strong></td><td><code>composite_to_bitmap_layer</code></td><td>Colours the chosen band and embeds it as a PNG map overlay with a legend.</td></tr>
+        <tr><td>12</td><td><strong>Merge Tile Layers</strong></td><td><code>merge_tile_layers</code></td><td>Puts the overlay on top of the base maps.</td></tr>
+        <tr><td>13</td><td><strong>Draw Map</strong></td><td><code>draw_map</code></td><td>Renders the interactive map to HTML, legend bottom-right.</td></tr>
+        <tr><td>14</td><td><strong>Persist Text</strong></td><td><code>persist_text</code></td><td>Saves the map HTML to the results folder.</td></tr>
+        <tr><td>15</td><td><strong>Create Map Widget Single View</strong></td><td><code>create_map_widget_single_view</code></td><td>Wraps the map as a dashboard widget titled <em>Map</em>.</td></tr>
+        <tr><td>16</td><td><strong>Gather Dashboard</strong></td><td><code>gather_dashboard</code></td><td>Assembles the dashboard with the workflow details and time range.</td></tr>
+      </tbody>
     </table>
 
-    <h2>Task packages</h2>
+    <h2 id="scenes">Scene selection and cloud masking</h2>
+    <p>Cloud cover is handled at two levels:</p>
+    <ul>
+      <li><strong>Per scene.</strong> Scenes whose cloud cover is above <strong>Cloud Threshold</strong> are left out completely.</li>
+      <li><strong>Per pixel.</strong> In the scenes that are kept, pixels flagged as cloud, shadow or cirrus by the quality band are masked. They do not count towards the composite.</li>
+    </ul>
+    <p>A higher threshold keeps more scenes. Their cloudy pixels are still masked, so in persistently cloudy regions a higher threshold usually gives better coverage.</p>
+    <p>The time range is applied as <code>[since, until)</code>: <em>until</em> itself is excluded.</p>
+
+    <h3>Sentinel-2</h3>
+    <table>
+      <tbody>
+        <tr><th>Collection</th><td><code>COPERNICUS/S2_SR_HARMONIZED</code> (Level-2A surface reflectance)</td></tr>
+        <tr><th>Scene filter</th><td><code>CLOUDY_PIXEL_PERCENTAGE ≤ threshold</code></td></tr>
+        <tr><th>Pixel mask</th><td>Scene Classification (<code>SCL</code>). Only classes 4 vegetation, 5 bare soil, 6 water, 7 unclassified and 11 snow/ice are kept. Cloud shadow, medium/high-probability cloud, cirrus, dark-area and saturated/defective pixels are masked.</td></tr>
+        <tr><th>Bands</th><td>B2 → blue, B3 → green, B4 → red, B8 → nir, B11 → swir1, B12 → swir2</td></tr>
+        <tr><th>Reflectance</th><td><code>DN / 10000</code></td></tr>
+        <tr><th>Default pixel size</th><td>10 m (B11/B12 are natively 20 m and are resampled)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Landsat</h3>
+    <p>Landsat 5, 7, 8 and 9 (Collection 2, Tier 1, Level-2) are merged into one collection. Whichever satellites were flying during the time range contribute scenes.</p>
+    <table>
+      <tbody>
+        <tr><th>Collections</th><td><code>LANDSAT/LT05/C02/T1_L2</code>, <code>LE07</code>, <code>LC08</code>, <code>LC09</code></td></tr>
+        <tr><th>Scene filter</th><td><code>CLOUD_COVER ≤ threshold</code></td></tr>
+        <tr><th>Pixel mask</th><td><code>QA_PIXEL</code> bits 1–4 (dilated cloud, cirrus, cloud, cloud shadow) must all be 0. Pixels with any saturated band (<code>QA_RADSAT ≠ 0</code>) are also masked.</td></tr>
+        <tr><th>Bands</th><td>L5/L7: SR_B1–B5, SR_B7. L8/L9: SR_B2–B7. Both are renamed blue, green, red, nir, swir1, swir2.</td></tr>
+        <tr><th>Reflectance</th><td><code>DN × 0.0000275 − 0.2</code></td></tr>
+        <tr><th>Default pixel size</th><td>30 m</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Landsat 7 scenes after May 2003 have scan-line gaps (SLC-off). With several scenes in the range the median usually fills them. A short range that only has Landsat 7 will show stripes.</p>
+
+    <h2 id="compositing">Compositing</h2>
+    <p>After masking, each band is reduced over time pixel by pixel with the chosen <strong>Reducer</strong>:</p>
+    <table>
+      <thead><tr><th>Reducer</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><code>median</code> (default)</td><td>General use. Robust to cloud edges and haze the mask missed.</td></tr>
+        <tr><td><code>mean</code></td><td>Smoother results when the masking is clean. Sensitive to missed clouds.</td></tr>
+        <tr><td><code>max</code></td><td>Peak greenness when NDVI is the main output, but bright missed clouds win in the visible bands.</td></tr>
+        <tr><td><code>min</code></td><td>Darkest observation. Often picks up cloud shadow the mask missed.</td></tr>
+      </tbody>
+    </table>
+    <p>Each band is reduced on its own, so one output pixel can take its red and its NIR from different dates.</p>
+    <p>The <code>valid_count</code> band counts the clear observations behind each pixel. It is the number of unmasked <code>red</code> values in the range. Use it to judge how far to trust a pixel: 1 means a single image, 0 means no clear observation, and the pixel is empty in every other band.</p>
+
+    <h2 id="indices">Spectral indices</h2>
+    <p>Indices are computed from the <strong>composite</strong> bands (surface reflectance, 0–1) after reduction, not per scene. A median NDVI here is the NDVI of the median red and NIR. That is not the same as the median of each scene's NDVI.</p>
+    <table>
+      <thead><tr><th>Index</th><th>Expression</th><th>Measures</th></tr></thead>
+      <tbody>
+        <tr><td>NDVI</td><td><code>(nir − red) / (nir + red)</code></td><td>Vegetation greenness</td></tr>
+        <tr><td>EVI</td><td><code>2.5 (nir − red) / (nir + 6 red − 7.5 blue + 1)</code></td><td>Greenness, less saturated over dense canopy</td></tr>
+        <tr><td>SAVI</td><td><code>1.5 (nir − red) / (nir + red + 0.5)</code></td><td>Greenness corrected for soil background</td></tr>
+        <tr><td>MSAVI</td><td><code>(2 nir + 1 − √((2 nir + 1)² − 8 (nir − red))) / 2</code></td><td>As SAVI, with no tuning factor</td></tr>
+        <tr><td>NDMI</td><td><code>(nir − swir1) / (nir + swir1)</code></td><td>Vegetation moisture</td></tr>
+        <tr><td>NDWI</td><td><code>(green − nir) / (green + nir)</code></td><td>Open water</td></tr>
+        <tr><td>NBR</td><td><code>(nir − swir2) / (nir + swir2)</code></td><td>Burn scars (compare before/after)</td></tr>
+        <tr><td>NDBI</td><td><code>(swir1 − nir) / (swir1 + nir)</code></td><td>Built-up areas</td></tr>
+        <tr><td>NDSI</td><td><code>(green − swir1) / (green + swir1)</code></td><td>Snow</td></tr>
+        <tr><td>BSI</td><td><code>((swir1 + red) − (nir + blue)) / ((swir1 + red) + (nir + blue))</code></td><td>Bare soil</td></tr>
+      </tbody>
+    </table>
+    <p>Indices use all six reflectance bands from the composite, even when those bands are not selected under <strong>Bands</strong>. <strong>Bands</strong> only controls which reflectance bands are written to the file.</p>
+
+    <h2 id="geotiff">The GeoTIFF</h2>
+    <p>One file per run, written to <code>ECOSCOPE_WORKFLOWS_RESULTS</code>:</p>
+    <pre><code>composite_&lt;sensor&gt;_&lt;roi-hash&gt;_&lt;since&gt;_&lt;until&gt;.tif
+e.g. composite_sentinel2_3f9a1c2e_2026-09-01_2026-09-30.tif</code></pre>
+    <p>The ROI hash is the first 8 characters of the MD5 of the merged ROI geometry, so different areas never overwrite each other. Running the same ROI, sensor and dates again replaces the file.</p>
+    <table>
+      <tbody>
+        <tr><th>Band order</th><td>The selected <strong>Bands</strong>, then the selected <strong>Indices</strong>, then <code>valid_count</code>. Each band's description is set to its name.</td></tr>
+        <tr><th>Data type</th><td><code>int16</code></td></tr>
+        <tr><th>Scaling</th><td>Reflectance and index bands are stored × 10 000 (divide by 10 000 to read them). Values are clamped to ±32 767. <code>valid_count</code> is not scaled.</td></tr>
+        <tr><th>No data</th><td><code>-32768</code> in every band outside the ROI, and in reflectance/index bands where <code>valid_count</code> is 0.</td></tr>
+        <tr><th>CRS</th><td>The UTM zone of the ROI's centre, e.g. <code>EPSG:32736</code>.</td></tr>
+        <tr><th>Grid</th><td>The ROI's bounding box, expanded outward to a multiple of the pixel size.</td></tr>
+        <tr><th>Layout</th><td>Tiled 256 × 256, DEFLATE compression, BigTIFF when needed.</td></tr>
+      </tbody>
+    </table>
+    <p>To use it in QGIS or Python, divide by 10 000 and set <code>-32768</code> as no data. For example, with rasterio:</p>
+    <pre><code>import rasterio
+with rasterio.open(path) as src:
+    i = src.descriptions.index("NDVI") + 1
+    ndvi = src.read(i, masked=True) / 10_000</code></pre>
+
+    <h2 id="download">Downloading from Earth Engine</h2>
+    <p>The composite is fetched with <code>ee.data.computePixels</code>, one square tile at a time, and each tile is written straight into the GeoTIFF. Earth Engine rejects responses over about 48 MB, so tiles are sized to keep each response under 32 MB (and at most 2048 px on a side):</p>
+    <pre><code>tile edge = min(2048, √(32 000 000 / (bands × 2)))</code></pre>
+    <p>With the default 6 bands + NDVI + <code>valid_count</code> (8 bands), a tile is 1414 px, about 14 km on a side at 10 m. Download time grows with the area of the ROI's bounding box:</p>
+    <table>
+      <thead><tr><th>Bounding box</th><th>Sentinel-2 (10 m)</th><th>Landsat (30 m)</th></tr></thead>
+      <tbody>
+        <tr><td>10 × 10 km</td><td>1 tile</td><td>1 tile</td></tr>
+        <tr><td>50 × 50 km</td><td>16 tiles</td><td>4 tiles</td></tr>
+        <tr><td>100 × 100 km</td><td>64 tiles, ~1.6 GB before compression</td><td>9 tiles</td></tr>
+      </tbody>
+    </table>
+    <p>The whole bounding box is downloaded, including the parts outside the ROI, which come back as no data. A long, diagonal ROI costs as much as its bounding box. Progress is printed as <code>tile n/N written</code>.</p>
+
+    <h2 id="rendering">Rendering the map overlay</h2>
+    <p>A 10 m composite is too large to draw as polygons, so <code>composite_to_bitmap_layer</code> turns it into one image:</p>
+    <ol>
+      <li>Read the chosen band (or the three bands of <code>true_color</code> = red/green/blue, <code>false_color</code> = nir/red/green) and divide by 10 000.</li>
+      <li>Reproject to Web Mercator (EPSG:3857), average-resampled down so the long side is at most 2048 px. A 100 km ROI is drawn at about 50 m per pixel. The GeoTIFF keeps full resolution.</li>
+      <li>Stretch the colour scale from the 2nd to the 98th percentile of the values in the ROI. RGB composites are stretched channel by channel.</li>
+      <li>Colour with the <strong>Palette</strong>, or the band's default below. No-data pixels are transparent.</li>
+      <li>Embed the result as a PNG in a bitmap layer at the chosen <strong>Opacity</strong>. Single bands get a six-step legend. RGB composites have no legend.</li>
+    </ol>
+    <table>
+      <thead><tr><th>Band</th><th>Default colormap</th></tr></thead>
+      <tbody>
+        <tr><td>blue / green / red</td><td>Blues / Greens / Reds</td></tr>
+        <tr><td>nir / swir1 / swir2</td><td>magma / inferno / cividis</td></tr>
+        <tr><td>NDVI, EVI, NBR</td><td>RdYlGn</td></tr>
+        <tr><td>SAVI, MSAVI</td><td>YlGn</td></tr>
+        <tr><td>NDMI</td><td>BrBG</td></tr>
+        <tr><td>NDWI</td><td>RdBu</td></tr>
+        <tr><td>NDBI</td><td>YlOrRd</td></tr>
+        <tr><td>NDSI</td><td>bone</td></tr>
+        <tr><td>BSI</td><td>YlOrBr</td></tr>
+        <tr><td>valid_count, anything else</td><td>viridis</td></tr>
+      </tbody>
+    </table>
+    <p>The palette can be any of 21 continuous matplotlib colormaps (optionally reversed) or a list of hex colours from low to high.</p>
+
+    <h2 id="fixed">Settings fixed in the spec</h2>
+    <p>These task arguments are set in <code>spec.yaml</code> and are not on the run form. Change them in Studio's designer.</p>
+    <table>
+      <thead><tr><th>Step</th><th>Argument</th><th>Value</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Export Cloudfree Composites</td><td><code>scale</code></td><td><code>null</code></td><td>10 m for Sentinel-2, 30 m for Landsat</td></tr>
+        <tr><td>Export Cloudfree Composites</td><td><code>crs</code></td><td><code>null</code></td><td>UTM zone of the ROI</td></tr>
+        <tr><td>Composite To Bitmap Layer</td><td><code>vmin</code>, <code>vmax</code></td><td><code>null</code></td><td>2nd–98th percentile stretch</td></tr>
+        <tr><td>Composite To Bitmap Layer</td><td><code>max_size</code></td><td><code>2048</code></td><td>Longest side of the overlay image, in pixels</td></tr>
+        <tr><td>Reproject Gdf</td><td><code>target_crs</code></td><td><code>4326</code></td><td>ROI in lon/lat</td></tr>
+        <tr><td>Draw Map</td><td><code>max_zoom</code></td><td><code>20</code></td><td></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="packages">Task packages</h2>
+    <p><code>export_cloudfree_composites</code> and <code>composite_to_bitmap_layer</code> come from <code>ecoscope-workflows-ext-mep</code> (<code>tasks/earthengine/</code>). The map and dashboard tasks come from <code>ecoscope-platform</code>.</p>
     <table>
       <thead><tr><th>Package</th><th>Version</th><th>Channel</th></tr></thead>
-      <tbody><tr><td><code>ecoscope-platform</code></td><td>==2.18.0</td><td>https://repo.prefix.dev/ecoscope-workflows/</td></tr><tr><td><code>ecoscope-workflows-ext-custom</code></td><td>==0.1.0rc14</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>ecoscope-workflows-ext-ste</code></td><td>==0.0.0rc1</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>ecoscope-workflows-ext-mnc</code></td><td>==1.0.5</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr><tr><td><code>pydeck</code></td><td>==0.9.2</td><td>conda-forge</td></tr><tr><td><code>ecoscope-workflows-ext-mep</code></td><td>==1.0.5</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr></tbody>
+      <tbody>
+        <tr><td><code>ecoscope-platform</code></td><td>==2.18.0</td><td>https://repo.prefix.dev/ecoscope-workflows/</td></tr>
+        <tr><td><code>ecoscope-workflows-ext-custom</code></td><td>==0.1.0rc14</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr>
+        <tr><td><code>ecoscope-workflows-ext-ste</code></td><td>==0.0.0rc1</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr>
+        <tr><td><code>ecoscope-workflows-ext-mnc</code></td><td>==1.0.5</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr>
+        <tr><td><code>ecoscope-workflows-ext-mep</code></td><td>==1.0.7</td><td>https://repo.prefix.dev/ecoscope-workflows-custom/</td></tr>
+        <tr><td><code>pydeck</code></td><td>==0.9.2</td><td>conda-forge</td></tr>
+      </tbody>
     </table>
 
-    <h2>Recompiling</h2>
-    <p><code>spec.yaml</code> is the source; <code>ecoscope-workflows-cloud-mask-composite-images-workflow/</code> is generated from it by wt-compiler.</p>
+    <h2 id="recompiling">Recompiling</h2>
+    <p><code>spec.yaml</code> is the source. <code>ecoscope-workflows-cloud-mask-composite-images-workflow/</code> is generated from it by wt-compiler.</p>
     <pre><code>./dev/recompile.sh --update   # keeps the lock file and bumps VERSION.yaml
 ./dev/recompile.sh --install  # a new lock file, and the packages installed</code></pre>
 
-    <h2>Testing</h2>
+    <h2 id="testing">Testing</h2>
     <p>Each case in <code>test-cases.yaml</code> runs the workflow with its settings:</p>
     <pre><code>pixi run --manifest-path pixi.toml -e default bash dev/pytest-cli.sh cloud_mask_composite_images --all</code></pre>
+    <p>The test cases call Earth Engine, so they need valid GEE credentials and network access.</p>
   </main>
 
   <footer class="site-footer">

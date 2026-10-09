@@ -21,7 +21,7 @@
 
   <main>
     <h1>cloud-mask-composite-images</h1>
-    <p class="lede">cloud-mask-composite-images</p>
+    <p class="lede">Builds one cloud-free Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel, the clear observations are combined into one composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
 
     <div class="card-grid">
       <a class="card" href="user-guide.html">
@@ -30,7 +30,7 @@
       </a>
       <a class="card" href="technical-guide.html">
         <h3>Technical Guide</h3>
-        <p>Each step of the workflow, the task packages it uses, and how to recompile and test it.</p>
+        <p>How clouds are masked and the composite is built, the GeoTIFF format, how the map is rendered, and how to recompile and test.</p>
       </a>
       <a class="card" href="troubleshooting.html">
         <h3>Troubleshooting</h3>
@@ -38,14 +38,29 @@
       </a>
     </div>
 
-    <h2>What it does</h2>
-    <table>
-      <thead><tr><th>Step</th><th>What it does</th></tr></thead>
-      <tbody><tr><td><strong>Load File</strong></td><td>Load a DataFrame or GeoDataFrame from various file formats.</td></tr><tr><td><strong>Set Base Maps</strong></td><td></td></tr><tr><td><strong>Set Workflow Details</strong></td><td>Add information that will help to differentiate this workflow from another.</td></tr><tr><td><strong>Set Groupers</strong></td><td></td></tr><tr><td><strong>Set Time Range</strong></td><td>Choose the period of time to analyze.</td></tr><tr><td><strong>Connect to Google Earth Engine</strong></td><td></td></tr><tr><td><strong>Fix Invalid Geometries</strong></td><td>Repair invalid geometries (e.g. self-intersecting polygons) in place.</td></tr><tr><td><strong>Reproject Gdf</strong></td><td></td></tr><tr><td><strong>View State From Geodataframes</strong></td><td></td></tr><tr><td><strong>Export Cloudfree Composites</strong></td><td>Build one cloud-free composite over the ROI for the time range, write it as a GeoTIFF and return its path.</td></tr><tr><td><strong>Composite To Bitmap Layer</strong></td><td>Colour one band (or an RGB band combination) of a composite and return it as a map overlay.</td></tr><tr><td><strong>Merge Tile Layers</strong></td><td>Merges static base tile layers with a per-group overlay into a single list.</td></tr><tr><td><strong>Draw Map</strong></td><td>Creates a map based on the provided layer definitions and configuration.</td></tr><tr><td><strong>Persist Text</strong></td><td>Persist text to a file or cloud storage object.</td></tr><tr><td><strong>Create Map Widget Single View</strong></td><td>Create a map widget with a single view.</td></tr><tr><td><strong>Gather Dashboard</strong></td><td></td></tr></tbody>
-    </table>
+    <h2>What it produces</h2>
+    <ul>
+      <li>A <strong>cloud-free composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
+      <li>An <strong>interactive map</strong> of one band (NDVI by default) or a true/false-colour view, over Esri topographic and satellite base maps, with a legend.</li>
+      <li>A <strong>dashboard</strong> showing the map, with the workflow name and time range.</li>
+    </ul>
+
+    <h2>How it works</h2>
+    <ol>
+      <li><strong>Area.</strong> Reads your area of interest from a vector file, repairs invalid geometries and merges all features into one shape.</li>
+      <li><strong>Scenes.</strong> Finds the Sentinel-2 or Landsat 5/7/8/9 scenes over the area in the time range, leaving out scenes cloudier than the threshold.</li>
+      <li><strong>Cloud mask.</strong> Masks cloud, cloud shadow and cirrus pixels in each scene using the sensor's quality band.</li>
+      <li><strong>Composite.</strong> Combines the clear pixels over time (median by default) and adds the chosen indices and <code>valid_count</code>.</li>
+      <li><strong>Export.</strong> Downloads the composite tile by tile into one GeoTIFF.</li>
+      <li><strong>Map.</strong> Colours the chosen band and lays it over the base maps on the dashboard.</li>
+    </ol>
+    <p>The <a href="technical-guide.html">Technical Guide</a> covers each stage in detail.</p>
 
     <h2>Requirements</h2>
-    <ul><li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li></ul>
+    <ul>
+      <li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li>
+      <li>A vector file of the <strong>area of interest</strong>, with polygons (GeoParquet, GeoJSON, GeoPackage, Shapefile, …)</li>
+    </ul>
 
     <h2>Get started</h2>
     <p>New to the workflow? Start with the <a href="user-guide.html">User Guide</a>. Running into an error? Check <a href="troubleshooting.html">Troubleshooting</a> first.</p>

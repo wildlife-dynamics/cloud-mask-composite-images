@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Cloud-Free Composite Images Workflow</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 860px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
+    h1 { font-size: 2em; border-bottom: 2px solid #2d6a4f; padding-bottom: 10px; color: #2d6a4f; }
+    h2 { font-size: 1.4em; color: #2d6a4f; margin-top: 2em; border-bottom: 1px solid #b7e4c7; padding-bottom: 4px; }
+    h3 { font-size: 1.1em; color: #40916c; margin-top: 1.5em; }
+    h4 { font-size: 1em; color: #52b788; }
+    img { max-width: 100%; border: 1px solid #d8e8d8; border-radius: 6px; margin: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    pre { background: #f4f4f4; padding: 12px 16px; border-radius: 6px; font-size: 0.9em; overflow-x: auto; border-left: 4px solid #52b788; }
+    code { background: #f0f7f0; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.95em; }
+    th { background: #2d6a4f; color: white; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #d8e8d8; }
+    tr:nth-child(even) td { background: #f0f7f0; }
+    hr { border: none; border-top: 1px solid #d8e8d8; margin: 2em 0; }
+    blockquote { border-left: 4px solid #52b788; margin: 1em 0; padding: 8px 16px; background: #f0f7f0; color: #444; border-radius: 0 4px 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1 id="cloud-free-composite-images-workflow">Cloud-Free Composite Images Workflow</h1>
+<p>Builds one cloud-free Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel. The clear observations are combined into a single composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
+<p>Full documentation: <a href="docs/index.html">docs/index.html</a> (User Guide, <a href="docs/technical-guide.html">Technical Guide</a> and Troubleshooting).</p>
+<h2 id="what-it-produces">What it produces</h2>
+<ul>
+<li>A <strong>cloud-free composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
+<li>An <strong>interactive map</strong> of one band (NDVI by default) or a true/false-colour view, over Esri topographic and satellite base maps, with a legend.</li>
+<li>A <strong>dashboard</strong> showing the map, with the workflow name and time range.</li>
+</ul>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>Area.</strong> Reads the area of interest from a vector file, repairs invalid geometries and merges all features into one shape.</li>
+<li><strong>Scenes.</strong> On Earth Engine, finds the Sentinel-2 (<code>COPERNICUS/S2_SR_HARMONIZED</code>) or Landsat 5/7/8/9 Collection 2 Level-2 scenes over the area in the time range. Scenes cloudier than the threshold are left out.</li>
+<li><strong>Cloud mask.</strong> Masks cloud, cloud shadow and cirrus pixels in each scene. Sentinel-2 uses the Scene Classification band (<code>SCL</code>). Landsat uses <code>QA_PIXEL</code>, and also masks saturated pixels.</li>
+<li><strong>Composite.</strong> Reduces the clear pixels over time to one value per pixel (median by default). Adds the chosen spectral indices and a <code>valid_count</code> band.</li>
+<li><strong>Export.</strong> Downloads the composite tile by tile with <code>computePixels</code> into one int16 GeoTIFF in the area's UTM zone.</li>
+<li><strong>Map.</strong> Reprojects and downsamples the chosen band, colours it, and lays it over the base maps on the dashboard.</li>
+</ol>
+<p>The <a href="docs/technical-guide.html">Technical Guide</a> covers each stage: masking rules, index formulas, raster encoding, tiling and rendering.</p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li>
+<li>A vector file of the <strong>area of interest</strong>, with polygons (GeoParquet, GeoJSON, GeoPackage, Shapefile, …)</li>
+</ul>
+<blockquote>
+<p>Larger areas take longer: a Sentinel-2 composite of a 100 × 100 km area is about 64 downloads and over a gigabyte before compression. For a first run, try an area of a few tens of kilometres and a range of one to three months.</p>
+</blockquote>
+<hr />
+<h2 id="1-load-the-workflow">1. Load the Workflow</h2>
+<p>In the workflow runner, add a new template using this repository's URL. Once added, select
+<strong>cloud-mask-composite-images</strong> from the available templates list to load it.</p>
+<hr />
+<h2 id="2-configure-the-workflow">2. Configure the Workflow</h2>
+<p>The form shows these sections in this order. Fields with a default can be left as they are.</p>
+<h3 id="set-workflow-details">Set Workflow Details</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow Name <em>(required)</em></td>
+<td>The name shown on the dashboard</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="connect-to-google-earth-engine">Connect to Google Earth Engine</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data source <em>(required)</em></td>
+<td>Select one of your configured Earth Engine data sources</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="set-time-range">Set Time Range</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Since <em>(required)</em></td>
+<td>Start of the period to composite</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Until <em>(required)</em></td>
+<td>End of the period (excluded)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Timezone</td>
+<td>Timezone the two times are in</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="load-file">Load File</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File Path <em>(required)</em></td>
+<td>Path to the area-of-interest file. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="export-cloudfree-composites">Export Cloudfree Composites</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sensor</td>
+<td><code>Sentinel-2</code> (10 m, 2017 onward) or <code>Landsat</code> (30 m, Landsat 5/7/8/9 combined, 1984 onward)</td>
+<td><code>Sentinel-2</code></td>
+</tr>
+<tr>
+<td>Cloud Threshold</td>
+<td>Maximum cloud cover (%) for a whole scene to be used. Cloudy pixels in kept scenes are masked anyway</td>
+<td><code>60.0</code></td>
+</tr>
+<tr>
+<td>Reducer</td>
+<td>How each pixel's clear observations are combined: <code>median</code>, <code>mean</code>, <code>min</code> or <code>max</code></td>
+<td><code>median</code></td>
+</tr>
+<tr>
+<td>Bands</td>
+<td>Reflectance bands written to the GeoTIFF</td>
+<td><code>["blue", "green", "red", "nir", "swir1", "swir2"]</code></td>
+</tr>
+<tr>
+<td>Indices</td>
+<td>Spectral indices added as bands: NDVI, EVI, SAVI, MSAVI, NDMI, NDWI, NBR, NDBI, NDSI, BSI</td>
+<td><code>["NDVI"]</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="composite-to-bitmap-layer">Composite To Bitmap Layer</h3>
+<p>Controls what is drawn on the map. The GeoTIFF always contains every selected band and index.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Band</td>
+<td>Band to show, e.g. <code>NDVI</code>, <code>nir</code> or <code>valid_count</code>; or <code>true_color</code> (red/green/blue) / <code>false_color</code> (nir/red/green). Must be a band selected above</td>
+<td><code>NDVI</code></td>
+</tr>
+<tr>
+<td>Palette</td>
+<td>A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Opacity</td>
+<td>Layer opacity, 0–1</td>
+<td><code>0.8</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-outputs">3. Outputs</h2>
+<p>Files are written to the workflow's results folder (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>).</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>composite_&lt;sensor&gt;_&lt;roi-hash&gt;_&lt;since&gt;_&lt;until&gt;.tif</code></td>
+<td>The composite. Bands in order: selected bands, selected indices, <code>valid_count</code>. Reflectance and index values are stored × 10 000 as int16. No data is <code>-32768</code></td>
+</tr>
+<tr>
+<td>Map <code>.html</code></td>
+<td>The interactive map shown on the dashboard</td>
+</tr>
+</tbody>
+</table>
+<p>The map is a downsampled preview (at most 2048 px on its long side). Use the GeoTIFF for full-resolution values.</p>
+<hr />
+<h2 id="4-troubleshooting">4. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>No Sentinel-2 scenes under …% cloud cover</code></td>
+<td>No scene passed the threshold. Raise <strong>Cloud Threshold</strong>, widen the time range, or use Landsat before 2017</td>
+</tr>
+<tr>
+<td>Holes inside the area</td>
+<td>No clear observation there (<code>valid_count</code> = 0). Widen the time range or raise the threshold</td>
+</tr>
+<tr>
+<td>Stripes on a Landsat composite</td>
+<td>Landsat 7 scan-line gaps. Widen the range or use 2013 onward</td>
+</tr>
+<tr>
+<td><code>Band(s) [...] not in ...</code></td>
+<td>The map <strong>Band</strong> wasn't selected under Bands or Indices</td>
+</tr>
+<tr>
+<td>The run is slow or times out</td>
+<td>The area's bounding box is large. Use a smaller area, or Landsat</td>
+</tr>
+</tbody>
+</table>
+<p>More in <a href="docs/troubleshooting.html">docs/troubleshooting.html</a>.</p>
+<hr />
+<h2 id="developing">Developing</h2>
+<pre><code class="language-bash"># recompile spec.yaml (first time: --install; after that: --update, which bumps VERSION.yaml)
+./dev/recompile.sh --update
+
+# run the test cases in test-cases.yaml
+pixi run --manifest-path pixi.toml -e default bash dev/pytest-cli.sh cloud_mask_composite_images --all
+</code></pre>
+<p>The composite and map tasks (<code>export_cloudfree_composites</code>, <code>composite_to_bitmap_layer</code>) come from <code>ecoscope-workflows-ext-mep</code> 1.0.7.</p>
+
+</body>
+</html>

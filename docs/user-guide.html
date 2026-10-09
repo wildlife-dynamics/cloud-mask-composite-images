@@ -21,49 +21,86 @@
 
   <main>
     <h1>User Guide</h1>
-    <p class="lede">How to load cloud-mask-composite-images, connect its data sources and fill in its settings.</p>
+    <p class="lede">How to load cloud-mask-composite-images, connect Google Earth Engine, fill in its settings and find the composite it produces.</p>
 
     <h2>1. Load the workflow</h2>
     <p>In the workflow runner, add a new template using this repository's URL, then select <strong>cloud-mask-composite-images</strong> from the templates list.</p>
 
-    <h2>2. Data sources</h2>
-    <ul><li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li></ul>
+    <h2>2. What you need</h2>
+    <ul>
+      <li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection. The account needs access to the public Sentinel-2 and Landsat collections.</li>
+      <li>A vector file of the <strong>area of interest</strong>. Use polygons: every feature in the file is merged into one area, and the composite is clipped to it. The file must be at a path the runner can read.</li>
+    </ul>
+    <p class="note">Larger areas take longer. A Sentinel-2 composite of a 100 × 100 km area is about 64 downloads and over a gigabyte before compression. For a first run, try an area of a few tens of kilometres and a range of one to three months.</p>
 
     <h2>3. Settings</h2>
-    <p>The run form asks for these. Fields with a default can be left as they are.</p>
-    <h3>Load File</h3>
-    <table>
-      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>File Path <em>(required)</em></td><td>Path to the file to load. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp</td><td>—</td></tr></tbody>
-    </table>
+    <p>The form shows these sections in this order. Fields with a default can be left as they are.</p>
+
     <h3>Set Workflow Details</h3>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>Workflow Name <em>(required)</em></td><td></td><td>—</td></tr></tbody>
+      <tbody><tr><td>Workflow Name <em>(required)</em></td><td>The name shown on the dashboard.</td><td>—</td></tr></tbody>
     </table>
-    <h3>Set Time Range</h3>
-    <table>
-      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>Since <em>(required)</em></td><td>The start time</td><td>—</td></tr><tr><td>Until <em>(required)</em></td><td>The end time</td><td>—</td></tr><tr><td>Timezone</td><td></td><td>—</td></tr></tbody>
-    </table>
+
     <h3>Connect to Google Earth Engine</h3>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>Data source <em>(required)</em></td><td>Select one of your configured data sources.</td><td>—</td></tr></tbody>
+      <tbody><tr><td>Data source <em>(required)</em></td><td>Select one of your configured Earth Engine data sources.</td><td>—</td></tr></tbody>
     </table>
+
+    <h3>Set Time Range</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody>
+        <tr><td>Since <em>(required)</em></td><td>Start of the period to composite.</td><td>—</td></tr>
+        <tr><td>Until <em>(required)</em></td><td>End of the period. Scenes on or after this moment are excluded.</td><td>—</td></tr>
+        <tr><td>Timezone</td><td>Timezone the two times are in.</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p>Sentinel-2 surface reflectance is available from 2017; Landsat from 1984. For a seasonal picture (e.g. dry-season greenness), set the range to that season. A longer range gives more clear observations but mixes in seasonal change.</p>
+
+    <h3>Load File</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>File Path <em>(required)</em></td><td>Path to the area-of-interest file. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp</td><td>—</td></tr></tbody>
+    </table>
+
     <h3>Export Cloudfree Composites</h3>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>Sensor</td><td>Satellite platform</td><td><code>Sentinel-2</code></td></tr><tr><td>Cloud Threshold</td><td>Maximum scene cloud cover (%) for a scene to be used</td><td><code>60.0</code></td></tr><tr><td>Reducer</td><td>Statistic used to aggregate clear pixels over time</td><td><code>median</code></td></tr><tr><td>Bands</td><td>Reflectance bands to include in the export</td><td><code>[&quot;blue&quot;, &quot;green&quot;, &quot;red&quot;, &quot;nir&quot;, &quot;swir1&quot;, &quot;swir2&quot;]</code></td></tr><tr><td>Indices</td><td>Spectral indices to add as bands</td><td><code>[&quot;NDVI&quot;]</code></td></tr></tbody>
+      <tbody>
+        <tr><td>Sensor</td><td><code>Sentinel-2</code> (10 m, 2017 onward) or <code>Landsat</code> (30 m, Landsat 5/7/8/9 combined, 1984 onward).</td><td><code>Sentinel-2</code></td></tr>
+        <tr><td>Cloud Threshold</td><td>Maximum cloud cover (%) for a whole scene to be used. Cloudy pixels in the scenes that are kept are masked anyway, so raise this in cloudy regions if the map has gaps.</td><td><code>60.0</code></td></tr>
+        <tr><td>Reducer</td><td>How each pixel's clear observations are combined: <code>median</code>, <code>mean</code>, <code>min</code> or <code>max</code>. Median is the most robust.</td><td><code>median</code></td></tr>
+        <tr><td>Bands</td><td>Reflectance bands written to the GeoTIFF: <code>blue</code>, <code>green</code>, <code>red</code>, <code>nir</code>, <code>swir1</code>, <code>swir2</code>.</td><td>all six</td></tr>
+        <tr><td>Indices</td><td>Spectral indices added as bands: NDVI, EVI, SAVI, MSAVI, NDMI, NDWI, NBR, NDBI, NDSI, BSI. See the <a href="technical-guide.html#indices">Technical Guide</a> for the formulas.</td><td><code>["NDVI"]</code></td></tr>
+      </tbody>
     </table>
+    <p>At least one band or index must be selected.</p>
+
     <h3>Composite To Bitmap Layer</h3>
+    <p>This section controls what is drawn on the map. The GeoTIFF always contains every selected band and index.</p>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>Band</td><td>Band to show, e.g. &#x27;NDVI&#x27;, &#x27;nir&#x27; or &#x27;valid_count&#x27;; or &#x27;true_color&#x27; (red/green/blue) / &#x27;false_color&#x27; (nir/red/green).</td><td><code>NDVI</code></td></tr><tr><td>Palette</td><td>A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI.</td><td>—</td></tr><tr><td>Opacity</td><td>Layer opacity</td><td><code>0.8</code></td></tr></tbody>
+      <tbody>
+        <tr><td>Band</td><td>One band to show, such as <code>NDVI</code>, <code>nir</code> or <code>valid_count</code>. Or <code>true_color</code> (red/green/blue, as the eye sees it) or <code>false_color</code> (nir/red/green, vegetation in red). The band must be one you selected above.</td><td><code>NDVI</code></td></tr>
+        <tr><td>Palette</td><td>A named colormap (e.g. <code>viridis</code>, <code>RdYlGn</code>, optionally reversed) or a list of hex colours from low to high. Single bands only. If left empty, the band gets a suitable colormap, e.g. RdYlGn for NDVI.</td><td>—</td></tr>
+        <tr><td>Opacity</td><td>Opacity of the overlay, 0–1. Lower it to see the base map underneath.</td><td><code>0.8</code></td></tr>
+      </tbody>
     </table>
+    <p>Choose <code>valid_count</code> as the band to see where the composite rests on few clear observations.</p>
 
     <h2>4. Run it and find the results</h2>
-    <p>The workflow writes its files to the results folder the runner gives it (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>), and shows its dashboard when it finishes.</p>
+    <p>Click <strong>Submit</strong>. The run log shows how many scenes were found, then <code>tile n/N written</code> while the composite downloads. The download is usually the slowest step.</p>
+    <p>Files are written to the results folder the runner gives the workflow (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>):</p>
+    <table>
+      <thead><tr><th>File</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td><code>composite_&lt;sensor&gt;_&lt;roi-hash&gt;_&lt;since&gt;_&lt;until&gt;.tif</code></td><td>The composite. Reflectance and index values are stored × 10 000 as integers. Divide by 10 000 to get reflectance (0–1) or index values (−1 to 1). No data is <code>-32768</code>.</td></tr>
+        <tr><td>Map <code>.html</code></td><td>The interactive map shown on the dashboard.</td></tr>
+      </tbody>
+    </table>
+    <p>The dashboard shows the map with the workflow name and time range. The map is a lighter, downsampled preview. Open the GeoTIFF in QGIS or Python for full-resolution values.</p>
   </main>
 
   <footer class="site-footer">

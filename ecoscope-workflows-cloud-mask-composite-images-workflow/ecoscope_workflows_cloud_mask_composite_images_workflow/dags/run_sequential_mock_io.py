@@ -42,6 +42,7 @@ from ecoscope_workflows_ext_mep.tasks.earthengine import (
 from ecoscope_workflows_ext_mnc.tasks.transformation import (
     fix_invalid_geometries as fix_invalid_geometries,
 )
+from ecoscope_workflows_ext_ste.tasks.io import get_file_path as get_file_path
 from wt_contracts import validate as _validate
 from wt_task import task
 
@@ -53,56 +54,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
 
     if validate_params_schema:
         _validate(params, _metadata.load_params_schema())
-
-    df = (
-        task(load_df)
-        .validate()
-        .set_task_instance_id("df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(layer=None, deserialize_json=False, **(params.get("df") or {}))
-        .call()
-    )
-
-    base_maps = (
-        task(set_base_maps)
-        .validate()
-        .set_task_instance_id("base_maps")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            base_maps=[
-                {
-                    "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                    "opacity": 1,
-                    "max_zoom": 20,
-                    "min_zoom": 0,
-                },
-                {
-                    "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    "opacity": 0.5,
-                    "max_zoom": 20,
-                    "min_zoom": 0,
-                },
-            ],
-            **(params.get("base_maps") or {}),
-        )
-        .call()
-    )
 
     workflow_details = (
         task(set_workflow_details)
@@ -117,24 +68,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(description="", **(params.get("workflow_details") or {}))
-        .call()
-    )
-
-    groupers = (
-        task(set_groupers)
-        .validate()
-        .set_task_instance_id("groupers")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(groupers=None, **(params.get("groupers") or {}))
+        .partial(**(params.get("workflow_details") or {}))
         .call()
     )
 
@@ -155,6 +89,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    groupers = (
+        task(set_groupers)
+        .validate()
+        .set_task_instance_id("groupers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(groupers=None, **(params.get("groupers") or {}))
+        .call()
+    )
+
     gee_connection = (
         task(set_gee_connection)
         .validate()
@@ -172,6 +123,65 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    retrieve_file_params = (
+        task(get_file_path)
+        .validate()
+        .set_task_instance_id("retrieve_file_params")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params.get("retrieve_file_params") or {}),
+        )
+        .call()
+    )
+
+    load_gdf = (
+        task(load_df)
+        .validate()
+        .set_task_instance_id("load_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            file_path=retrieve_file_params,
+            layer=None,
+            deserialize_json=True,
+            **(params.get("load_gdf") or {}),
+        )
+        .call()
+    )
+
+    base_maps = (
+        task(set_base_maps)
+        .validate()
+        .set_task_instance_id("base_maps")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("base_maps") or {}))
+        .call()
+    )
+
     invalid_geometries = (
         task(fix_invalid_geometries)
         .validate()
@@ -185,7 +195,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(gdf=df, **(params.get("invalid_geometries") or {}))
+        .partial(gdf=load_gdf, **(params.get("invalid_geometries") or {}))
         .call()
     )
 

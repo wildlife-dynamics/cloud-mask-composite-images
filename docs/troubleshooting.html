@@ -31,8 +31,62 @@
     </div>
 
     <div class="error-block">
-      <p class="symptom">The run returns no data</p>
-      <p>Names typed into the settings (a subject group, an event type) must match the data source exactly, including capitals. Widen the time range if it's short.</p>
+      <p class="symptom">Earth Engine authentication or permission errors</p>
+      <p>The Earth Engine data source needs a service account (or user) registered for Earth Engine, with a Cloud project that has the Earth Engine API enabled. Check that the connection works in Studio before running.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Every step is skipped</p>
+      <p>The area-of-interest file loaded with no rows. Check the path and that the file has features. For a <code>.gpkg</code> with several layers, the first layer is read.</p>
+    </div>
+
+    <h2>Building the composite</h2>
+
+    <div class="error-block">
+      <p class="symptom"><code>No Sentinel-2 scenes under 60.0% cloud cover for …</code></p>
+      <p>No scene over the area in the time range passed the cloud threshold. Raise <strong>Cloud Threshold</strong> (cloudy pixels are still masked out), widen the time range, or switch sensor. Sentinel-2 surface reflectance only covers 2017 onward. Use Landsat for earlier years.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>Select at least one band or spectral index to export.</code></p>
+      <p>Both <strong>Bands</strong> and <strong>Indices</strong> are empty. Select at least one.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The map has holes or patchy gaps inside the area</p>
+      <p>Those pixels had no clear observation (<code>valid_count</code> = 0): every scene was cloudy there. Show <code>valid_count</code> on the map to see where coverage is thin. Then widen the time range or raise the cloud threshold.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Stripes across a Landsat composite</p>
+      <p>Landsat 7 scan-line gaps (after May 2003). Widen the time range so other scenes fill them, or use a period with Landsat 8/9 (2013 onward).</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Speckles or bright/dark blotches remain</p>
+      <p>Clouds, haze or shadows the quality band missed. Use the <code>median</code> reducer (<code>max</code> favours bright clouds; <code>min</code> favours shadows) and a longer time range so each pixel has more observations.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The run is slow, or <code>computePixels</code> times out or hits a quota</p>
+      <p>The download covers the area's whole bounding box at 10 m (Sentinel-2) or 30 m (Landsat). Use a smaller or more compact area, or Landsat, which has 9× fewer pixels. Rerun after a quota error. The file is rewritten from the start.</p>
+    </div>
+
+    <h2>The map</h2>
+
+    <div class="error-block">
+      <p class="symptom"><code>Band(s) ['…'] not in …tif. Available: […]</code></p>
+      <p>The <strong>Band</strong> to show is not in the composite. Pick one you selected under Bands or Indices, or <code>valid_count</code>. <code>true_color</code> needs red, green and blue. <code>false_color</code> needs nir, red and green.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The map looks blocky compared with the GeoTIFF</p>
+      <p>The overlay is downsampled to at most 2048 px on its long side to keep the dashboard light. The GeoTIFF is full resolution.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Colours look washed out, or different between runs</p>
+      <p>The colour scale stretches from the 2nd to the 98th percentile of each run's values, so the same colour can mean different values in two runs. Read values from the legend. True/false colour is stretched channel by channel, which can shift the colour balance.</p>
     </div>
 
     <h2>Developing</h2>
