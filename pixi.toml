@@ -1,4 +1,3 @@
-# Written by Ecoscope Studio: the project that compiles spec.yaml (dev/recompile.sh).
 [workspace]
 name = "cloud-mask-composite-images"
 channels = ["https://repo.prefix.dev/ecoscope-workflows/", "https://repo.prefix.dev/ecoscope-workflows-custom/", "conda-forge"]

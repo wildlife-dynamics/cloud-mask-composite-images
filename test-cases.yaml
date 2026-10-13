@@ -1,6 +1,6 @@
 studio-run:
-  name: cloud-mask-composite-images (from Studio)
-  description: The values used with ▶ Run in Ecoscope Studio's designer.
+  name: cloud-mask-composite-images 
+  description: cloud-mask-composite-images
   params:
     workflow_details:
       name: jh

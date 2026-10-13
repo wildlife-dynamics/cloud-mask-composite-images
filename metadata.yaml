@@ -3,5 +3,9 @@ author:
 - name: Tevin Temu
   organization: Wildlife Dynamics
   email: tevin@wildlifedynamics.com
-description: ''
+description: >-
+  Builds a cloud-free satellite composite (Sentinel-2 or Landsat) from Google Earth Engine for
+  an uploaded region of interest (GeoJSON, GeoPackage or GeoParquet) over the chosen time range.
+  Clouds and cloud shadows are masked, the clear pixels are combined into one image, and that
+  image is saved as a GeoTIFF and shown on an interactive map over the selected base maps.
 citation: []
