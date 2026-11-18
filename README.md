@@ -1,18 +1,20 @@
-# Cloud-Free Composite Images Workflow
+# Cloud-Masked Composite Images Workflow
 
-Builds one cloud-free Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel. The clear observations are combined into a single composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.
+![NDVI from a September 2026 Sentinel-2 cloud-masked composite over the Laikipia Conservancies group (Sample EarthRanger area, Earth Engine imagery)](resources/thumbnail.png)
+
+Builds one cloud-masked Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel. The clear observations are combined into a single composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.
 
 Full documentation: [docs/index.html](docs/index.html) (User Guide, [Technical Guide](docs/technical-guide.html) and Troubleshooting).
 
 ## What it produces
 
-- A **cloud-free composite GeoTIFF** of the area: the selected reflectance bands, the selected spectral indices, and a `valid_count` band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.
+- A **cloud-masked composite GeoTIFF** of the area: the selected reflectance bands, the selected spectral indices, and a `valid_count` band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.
 - An **interactive map** of one band (NDVI by default) or a true/false-colour view, over Esri topographic and satellite base maps, with a legend.
 - A **dashboard** showing the map, with the workflow name and time range.
 
 ## How it works
 
-1. **Area.** Reads the area of interest from a vector file, repairs invalid geometries and merges all features into one shape.
+1. **Area.** Reads the area of interest from an EarthRanger spatial feature group, keeps its polygons, repairs invalid geometries and merges all features into one shape.
 2. **Scenes.** On Earth Engine, finds the Sentinel-2 (`COPERNICUS/S2_SR_HARMONIZED`) or Landsat 5/7/8/9 Collection 2 Level-2 scenes over the area in the time range. Scenes cloudier than the threshold are left out.
 3. **Cloud mask.** Masks cloud, cloud shadow and cirrus pixels in each scene. Sentinel-2 uses the Scene Classification band (`SCL`). Landsat uses `QA_PIXEL`, and also masks saturated pixels.
 4. **Composite.** Reduces the clear pixels over time to one value per pixel (median by default). Adds the chosen spectral indices and a `valid_count` band.
@@ -24,7 +26,8 @@ The [Technical Guide](docs/technical-guide.html) covers each stage: masking rule
 ## Requirements
 
 - Access to a **Google Earth Engine** data source, set up as a connection
-- A vector file of the **area of interest**, with polygons (GeoParquet, GeoJSON, GeoPackage, Shapefile, …)
+- Access to an **EarthRanger** data source, set up as a connection
+- An EarthRanger **spatial feature group** outlining the area of interest, with polygons
 
 > Larger areas take longer: a Sentinel-2 composite of a 100 × 100 km area is about 64 downloads and over a gigabyte before compression. For a first run, try an area of a few tens of kilometres and a range of one to three months.
 
@@ -47,6 +50,12 @@ The form shows these sections in this order. Fields with a default can be left a
 |---|---|---|
 | Workflow Name *(required)* | The name shown on the dashboard | — |
 
+### Connect to EarthRanger
+
+| Field | Description | Default |
+|---|---|---|
+| Data source *(required)* | Select one of your configured EarthRanger data sources | — |
+
 ### Connect to Google Earth Engine
 
 | Field | Description | Default |
@@ -61,13 +70,13 @@ The form shows these sections in this order. Fields with a default can be left a
 | Until *(required)* | End of the period (excluded) | — |
 | Timezone | Timezone the two times are in | — |
 
-### Load File
+### Region of Interest
 
 | Field | Description | Default |
 |---|---|---|
-| File Path *(required)* | Path to the area-of-interest file. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp | — |
+| Spatial Feature Group *(required)* | EarthRanger spatial feature group outlining the area to composite. All of its polygons are merged into one region, so pick a group that covers a single area. Points and lines in the group are ignored | — |
 
-### Export Cloudfree Composites
+### Satellite Composite
 
 | Field | Description | Default |
 |---|---|---|
@@ -84,7 +93,7 @@ Controls what is drawn on the map. The GeoTIFF always contains every selected ba
 | Field | Description | Default |
 |---|---|---|
 | Band | Band to show, e.g. `NDVI`, `nir` or `valid_count`; or `true_color` (red/green/blue) / `false_color` (nir/red/green). Must be a band selected above | `NDVI` |
-| Palette | A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI | — |
+| Palette | How to colour a single band. **Default for the band**: a scale picked for the band, e.g. RdYlGn for NDVI, RdBu for NDWI. **Named colormap**: choose a ready-made scale (e.g. `viridis`, `Blues`), optionally reversed. **Custom colours**: your own hex colours from low to high. Not used for `true_color` / `false_color` | Default for the band |
 | Opacity | Layer opacity, 0–1 | `0.8` |
 
 ---

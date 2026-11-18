@@ -21,7 +21,7 @@
 
   <main>
     <h1>User Guide</h1>
-    <p class="lede">How to load cloud-mask-composite-images, connect Google Earth Engine, fill in its settings and find the composite it produces.</p>
+    <p class="lede">How to load cloud-mask-composite-images, connect EarthRanger and Google Earth Engine, fill in its settings and find the composite it produces.</p>
 
     <h2>1. Load the workflow</h2>
     <p>In the workflow runner, add a new template using this repository's URL, then select <strong>cloud-mask-composite-images</strong> from the templates list.</p>
@@ -29,7 +29,8 @@
     <h2>2. What you need</h2>
     <ul>
       <li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection. The account needs access to the public Sentinel-2 and Landsat collections.</li>
-      <li>A vector file of the <strong>area of interest</strong>. Use polygons: every feature in the file is merged into one area, and the composite is clipped to it. The file must be at a path the runner can read.</li>
+      <li>Access to an <strong>EarthRanger</strong> data source, set up as a connection.</li>
+      <li>An EarthRanger <strong>spatial feature group</strong> outlining the area of interest. Its polygons are merged into one area and the composite is clipped to it; points and lines are ignored. A group whose features are far apart (e.g. every park on a site) gives one very large bounding box, so use a group that covers a single area.</li>
     </ul>
     <p class="note">Larger areas take longer. A Sentinel-2 composite of a 100 × 100 km area is about 64 downloads and over a gigabyte before compression. For a first run, try an area of a few tens of kilometres and a range of one to three months.</p>
 
@@ -40,6 +41,12 @@
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
       <tbody><tr><td>Workflow Name <em>(required)</em></td><td>The name shown on the dashboard.</td><td>—</td></tr></tbody>
+    </table>
+
+    <h3>Connect to EarthRanger</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
+      <tbody><tr><td>Data source <em>(required)</em></td><td>Select one of your configured EarthRanger data sources. The Region of Interest list is filled from it.</td><td>—</td></tr></tbody>
     </table>
 
     <h3>Connect to Google Earth Engine</h3>
@@ -59,13 +66,13 @@
     </table>
     <p>Sentinel-2 surface reflectance is available from 2017; Landsat from 1984. For a seasonal picture (e.g. dry-season greenness), set the range to that season. A longer range gives more clear observations but mixes in seasonal change.</p>
 
-    <h3>Load File</h3>
+    <h3>Region of Interest</h3>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
-      <tbody><tr><td>File Path <em>(required)</em></td><td>Path to the area-of-interest file. Supported formats: .parquet, .geoparquet, .geojson, .json, .gpkg, .csv, .shp</td><td>—</td></tr></tbody>
+      <tbody><tr><td>Spatial Feature Group <em>(required)</em></td><td>EarthRanger spatial feature group outlining the area to composite. All of its polygons are merged into one region, so pick a group that covers a single area.</td><td>—</td></tr></tbody>
     </table>
 
-    <h3>Export Cloudfree Composites</h3>
+    <h3>Satellite Composite</h3>
     <table>
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
       <tbody>
@@ -84,7 +91,7 @@
       <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
       <tbody>
         <tr><td>Band</td><td>One band to show, such as <code>NDVI</code>, <code>nir</code> or <code>valid_count</code>. Or <code>true_color</code> (red/green/blue, as the eye sees it) or <code>false_color</code> (nir/red/green, vegetation in red). The band must be one you selected above.</td><td><code>NDVI</code></td></tr>
-        <tr><td>Palette</td><td>A named colormap (e.g. <code>viridis</code>, <code>RdYlGn</code>, optionally reversed) or a list of hex colours from low to high. Single bands only. If left empty, the band gets a suitable colormap, e.g. RdYlGn for NDVI.</td><td>—</td></tr>
+        <tr><td>Palette</td><td>How to colour a single band. <strong>Default for the band</strong>: a scale picked for the band, e.g. RdYlGn for NDVI, RdBu for NDWI. <strong>Named colormap</strong>: choose a ready-made scale (e.g. <code>viridis</code>, <code>Blues</code>), optionally reversed. <strong>Custom colours</strong>: your own hex colours from low to high. Not used for <code>true_color</code> / <code>false_color</code>.</td><td>Default for the band</td></tr>
         <tr><td>Opacity</td><td>Opacity of the overlay, 0–1. Lower it to see the base map underneath.</td><td><code>0.8</code></td></tr>
       </tbody>
     </table>

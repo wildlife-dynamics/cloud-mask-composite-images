@@ -1,5 +1,5 @@
 studio-run:
-  name: cloud-mask-composite-images 
+  name: cloud-mask-composite-images
   description: cloud-mask-composite-images
   params:
     workflow_details:
@@ -7,6 +7,32 @@ studio-run:
     time_range:
       since: '2026-09-01T11:09:53'
       until: '2026-09-30T11:10:03'
+    er_client_name:
+      data_source:
+        name: Sample EarthRanger
     gee_connection:
       data_source:
         name: Wildlife Dynamics Google Earth Engine
+    roi_features:
+      spatial_features_group_name: Laikipia Conservancies
+
+sample-er:
+  name: Sample EarthRanger
+  description: >-
+    Live run against the local Sample EarthRanger (Africa scenario): a Sentinel-2 composite over
+    the Laikipia Conservancies feature group for September 2026, imagery from Google Earth Engine.
+  mock_io: false
+  params:
+    workflow_details:
+      name: Cloud-masked composite, Laikipia
+    time_range:
+      since: '2026-09-01T00:00:00'
+      until: '2026-09-30T23:59:59'
+    er_client_name:
+      data_source:
+        name: Sample EarthRanger
+    gee_connection:
+      data_source:
+        name: Wildlife Dynamics Google Earth Engine
+    roi_features:
+      spatial_features_group_name: Laikipia Conservancies

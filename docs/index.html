@@ -21,7 +21,7 @@
 
   <main>
     <h1>cloud-mask-composite-images</h1>
-    <p class="lede">Builds one cloud-free Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel, the clear observations are combined into one composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
+    <p class="lede">Builds one cloud-masked Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel, the clear observations are combined into one composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
 
     <div class="card-grid">
       <a class="card" href="user-guide.html">
@@ -40,14 +40,14 @@
 
     <h2>What it produces</h2>
     <ul>
-      <li>A <strong>cloud-free composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
+      <li>A <strong>cloud-masked composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
       <li>An <strong>interactive map</strong> of one band (NDVI by default) or a true/false-colour view, over Esri topographic and satellite base maps, with a legend.</li>
       <li>A <strong>dashboard</strong> showing the map, with the workflow name and time range.</li>
     </ul>
 
     <h2>How it works</h2>
     <ol>
-      <li><strong>Area.</strong> Reads your area of interest from a vector file, repairs invalid geometries and merges all features into one shape.</li>
+      <li><strong>Area.</strong> Reads your area of interest from an EarthRanger spatial feature group, keeps its polygons, repairs invalid geometries and merges all features into one shape.</li>
       <li><strong>Scenes.</strong> Finds the Sentinel-2 or Landsat 5/7/8/9 scenes over the area in the time range, leaving out scenes cloudier than the threshold.</li>
       <li><strong>Cloud mask.</strong> Masks cloud, cloud shadow and cirrus pixels in each scene using the sensor's quality band.</li>
       <li><strong>Composite.</strong> Combines the clear pixels over time (median by default) and adds the chosen indices and <code>valid_count</code>.</li>
@@ -59,7 +59,8 @@
     <h2>Requirements</h2>
     <ul>
       <li>Access to a <strong>Google Earth Engine</strong> data source, set up as a connection</li>
-      <li>A vector file of the <strong>area of interest</strong>, with polygons (GeoParquet, GeoJSON, GeoPackage, Shapefile, …)</li>
+      <li>Access to an <strong>EarthRanger</strong> data source, set up as a connection</li>
+      <li>An EarthRanger <strong>spatial feature group</strong> outlining the area of interest, with polygons</li>
     </ul>
 
     <h2>Get started</h2>

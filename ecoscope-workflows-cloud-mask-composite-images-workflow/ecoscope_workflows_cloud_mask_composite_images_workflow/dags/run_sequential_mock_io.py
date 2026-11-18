@@ -13,8 +13,23 @@ from typing import Any
 from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
-from ecoscope.platform.tasks.io import persist_text as persist_text
+from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
 from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
+from ecoscope.platform.tasks.skip import (
+    any_dependency_skipped as any_dependency_skipped,
+)
+from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
+from wt_contracts import validate as _validate
+from wt_task import task
+from wt_task.testing import create_func_magicmock  # 🧪
+
+from .. import metadata as _metadata
+
+get_spatial_features_group = create_func_magicmock(  # 🧪
+    anchor="ecoscope.platform.tasks.io",  # 🧪
+    func_name="get_spatial_features_group",  # 🧪
+)  # 🧪
+from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
 )
@@ -25,11 +40,9 @@ from ecoscope.platform.tasks.results import set_base_maps as set_base_maps
 from ecoscope.platform.tasks.results import (
     view_state_from_geodataframes as view_state_from_geodataframes,
 )
-from ecoscope.platform.tasks.skip import (
-    any_dependency_skipped as any_dependency_skipped,
+from ecoscope.platform.tasks.transformation import (
+    filter_by_geometry_type as filter_by_geometry_type,
 )
-from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
 )
@@ -42,11 +55,6 @@ from ecoscope_workflows_ext_mep.tasks.earthengine import (
 from ecoscope_workflows_ext_mnc.tasks.transformation import (
     fix_invalid_geometries as fix_invalid_geometries,
 )
-from ecoscope_workflows_ext_ste.tasks.io import get_file_path as get_file_path
-from wt_contracts import validate as _validate
-from wt_task import task
-
-from .. import metadata as _metadata
 
 
 def main(params: dict[str, Any], validate_params_schema: bool = True):
@@ -69,6 +77,40 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("workflow_details") or {}))
+        .call()
+    )
+
+    er_client_name = (
+        task(set_er_connection)
+        .validate()
+        .set_task_instance_id("er_client_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("er_client_name") or {}))
+        .call()
+    )
+
+    gee_connection = (
+        task(set_gee_connection)
+        .validate()
+        .set_task_instance_id("gee_connection")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("gee_connection") or {}))
         .call()
     )
 
@@ -106,10 +148,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    gee_connection = (
-        task(set_gee_connection)
-        .validate()
-        .set_task_instance_id("gee_connection")
+    roi_features = (
+        task(get_spatial_features_group)
+        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
+        .set_task_instance_id("roi_features")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -119,14 +161,14 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(**(params.get("gee_connection") or {}))
+        .partial(client=er_client_name, **(params.get("roi_features") or {}))
         .call()
     )
 
-    retrieve_file_params = (
-        task(get_file_path)
+    roi_polygons = (
+        task(filter_by_geometry_type)
         .validate()
-        .set_task_instance_id("retrieve_file_params")
+        .set_task_instance_id("roi_polygons")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -137,30 +179,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params.get("retrieve_file_params") or {}),
-        )
-        .call()
-    )
-
-    load_gdf = (
-        task(load_df)
-        .validate()
-        .set_task_instance_id("load_gdf")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            file_path=retrieve_file_params,
-            layer=None,
-            deserialize_json=True,
-            **(params.get("load_gdf") or {}),
+            df=roi_features,
+            geometry_types=["Polygon", "MultiPolygon"],
+            **(params.get("roi_polygons") or {}),
         )
         .call()
     )
@@ -195,7 +216,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(gdf=load_gdf, **(params.get("invalid_geometries") or {}))
+        .partial(gdf=roi_polygons, **(params.get("invalid_geometries") or {}))
         .call()
     )
 
@@ -237,10 +258,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    cloudfree_composites_2 = (
+    satellite_composite = (
         task(export_cloudfree_composites)
         .validate()
-        .set_task_instance_id("cloudfree_composites_2")
+        .set_task_instance_id("satellite_composite")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -257,7 +278,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             time_range=time_range,
             scale=None,
             crs=None,
-            **(params.get("cloudfree_composites_2") or {}),
+            **(params.get("satellite_composite") or {}),
         )
         .call()
     )
@@ -276,7 +297,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            composite_path=cloudfree_composites_2,
+            composite_path=satellite_composite,
             vmin=None,
             vmax=None,
             max_size=2048,

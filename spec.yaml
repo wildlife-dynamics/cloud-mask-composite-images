@@ -1,4 +1,45 @@
 id: cloud_mask_composite_images
+metadata:
+  name: Cloud-Masked Composite Images
+  description: >-
+    Builds a cloud-masked satellite composite (Sentinel-2 or Landsat) from Google Earth Engine for
+    a region of interest taken from an EarthRanger spatial feature group over the chosen time range.
+    Clouds and cloud shadows are masked, the clear pixels are combined into one image, and that
+    image is saved as a GeoTIFF and shown on an interactive map over the selected base maps.
+  maintainers:
+    - name: Tevin Temu
+      email: tevin@wildlifedynamics.com
+      role: owner
+  outputs:
+    - name: Composite Dashboard
+      type: dashboard
+      description: >-
+        The composite map with the workflow name and time range.
+      indicators:
+        - name: Vegetation greenness (NDVI)
+    - name: Composite Map
+      type: map
+      description: >-
+        One band of the composite (NDVI by default) or a true/false-colour view, clipped to the
+        region of interest, over Esri topographic and satellite base maps, with a legend.
+      indicators:
+        - name: Vegetation greenness (NDVI)
+    - name: Cloud-Masked Composite
+      type: file
+      description: >-
+        A GeoTIFF of the selected reflectance bands and spectral indices plus a valid_count band
+        (clear observations per pixel), 10 m for Sentinel-2 or 30 m for Landsat, in the region's
+        UTM zone.
+      indicators:
+        - name: Surface reflectance
+        - name: Vegetation greenness (NDVI)
+  license: BSD-3-Clause
+  repository: https://github.com/wildlife-dynamics/cloud-mask-composite-images
+  documentation: https://github.com/wildlife-dynamics/cloud-mask-composite-images#readme
+  readme: README.md
+  keywords: [satellite, sentinel-2, landsat, cloud-mask, composite, ndvi, earth-engine, earthranger]
+  thumbnail: resources/thumbnail.png
+
 requirements:
 - name: ecoscope-platform
   version: ==2.18.0
@@ -24,6 +65,64 @@ requirements:
   version: ==1.0.7
   channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
+rjsf-overrides:
+  properties:
+    Region of Interest.properties.roi_features.title: ""
+    Region of Interest.properties.roi_features.properties.spatial_features_group_name.title: Spatial Feature Group
+    Region of Interest.properties.roi_features.properties.spatial_features_group_name.description: >-
+      EarthRanger spatial feature group outlining the area to composite. All of its polygons are
+      combined into one region, so pick a group that covers a single area.
+    Region of Interest.properties.roi_features.properties.spatial_features_group_name.ecoscope:transform:
+      - transformer: EarthRangerEnumResolver
+        transformer_kws:
+          type: spatial_feature_group
+          depends_on: properties.er_client_name.properties.data_source.properties.name
+
+    # Palette: one flat, labelled choice instead of the generated anyOf[oneOf[...], null], which
+    # Desktop shows as "Option 1 / Option 2".
+    to_bitmap_layer.properties.palette.description: >-
+      Colours used to draw the band on the map. 'Default for the band' picks a scale that suits
+      the band, e.g. red-yellow-green for NDVI. 'Named colormap' lets you choose a ready-made
+      scale such as viridis or Blues. 'Custom colours' takes your own hex colours from low to high.
+      Not used for true_color or false_color, which show the image's own colours.
+    to_bitmap_layer.properties.palette.anyOf:
+      - type: "null"
+        title: Default for the band
+        description: >-
+          Uses a colormap chosen for the band: red-yellow-green (RdYlGn) for NDVI, EVI and NBR,
+          red-blue (RdBu) for NDWI, brown-green (BrBG) for NDMI, Reds for the red band, magma for
+          nir, and viridis for valid_count and anything else.
+      - $ref: "#/$defs/ColormapPalette"
+        title: Named colormap
+        description: Choose a ready-made colour scale from the list.
+      - $ref: "#/$defs/CustomPalette"
+        title: Custom colours
+        description: Enter your own colours, from the lowest value to the highest.
+
+  $defs:
+    ColormapPalette.title: Named colormap
+    ColormapPalette.description: Choose a ready-made colour scale from the list.
+    ColormapPalette.properties.name.title: Colormap
+    ColormapPalette.properties.name.description: >-
+      Single-hue scales (Greens, Blues, Reds, YlGn, …) suit values that only go up, such as
+      reflectance or valid_count. Two-sided scales (RdYlGn, BrBG, RdBu, Spectral, PiYG, PuOr) suit
+      indices that run from negative to positive, such as NDVI or NDWI. viridis, cividis, magma,
+      inferno and plasma are readable for colour-blind viewers.
+    ColormapPalette.properties.reverse.title: Reverse colours
+    ColormapPalette.properties.reverse.description: Flip the scale so high values get the low-end colour.
+    CustomPalette.title: Custom colours
+    CustomPalette.description: Enter your own colours, from the lowest value to the highest.
+    CustomPalette.properties.colors.title: Colours
+    CustomPalette.properties.colors.description: >-
+      Hex colours from low to high values, e.g. #f7fcb9 then #31a354 for pale yellow to green.
+      Use two or more; values in between are blended.
+
+  uiSchema:
+    to_bitmap_layer.palette.anyOf:
+      - {}
+      - {"ui:options": {label: false}, type_: {"ui:widget": hidden}}
+      - {"ui:options": {label: false}, type_: {"ui:widget": hidden}}
+
 task-instance-defaults:
   skipif:
     conditions:
@@ -31,45 +130,49 @@ task-instance-defaults:
     - any_dependency_skipped
 
 workflow:
-  - name: Set Workflow Details
+  - name: Workflow Details
     id: workflow_details
     task: set_workflow_details
 
-  - name: Set Time Range
+  - name: Data Source
+    id: er_client_name
+    task: set_er_connection
+
+  - name: Google Earth Engine
+    id: gee_connection
+    task: set_gee_connection
+
+  - name: Time Range
     id: time_range
     task: set_time_range
     partial:
       time_format: '%d %b %Y %H:%M:%S'
 
-  - name: Set Groupers
+  - name: Group Data
     id: groupers
     task: set_groupers
     partial:
       groupers: null
 
-  - name: Connect to Google Earth Engine
-    id: gee_connection
-    task: set_gee_connection
-
-  - title: Define Region of Interest
+  - title: Region of Interest
     type: task-group
-    description: Define the region of interest for the aerial survey by uploading a geospatial file (GeoJSON, GeoPackage or GeoParquet) that contains the boundary of the area to be surveyed. This file will be loaded and processed to generate the survey lines.
+    description: " "
     tasks:
-      - name: null
-        id: retrieve_file_params
-        task: ecoscope_workflows_ext_ste.tasks.io.get_file_path
-        partial: 
-          output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      - name: Region of Interest
+        id: roi_features
+        task: get_spatial_features_group
+        partial:
+          client: ${{ workflow.er_client_name.return }}
 
-  - name: Load File 
-    id: load_gdf 
-    task: load_df 
+  # The composite covers the union of every polygon in the group; points and lines are dropped.
+  - name: Keep Polygons
+    id: roi_polygons
+    task: filter_by_geometry_type
     partial:
-      file_path: ${{ workflow.retrieve_file_params.return }}
-      layer: null
-      deserialize_json: true 
+      df: ${{ workflow.roi_features.return }}
+      geometry_types: ["Polygon", "MultiPolygon"]
 
-  - name: Set Base Maps
+  - name: Map Base Layers
     id: base_maps
     task: set_base_maps
 
@@ -77,7 +180,7 @@ workflow:
     id: invalid_geometries
     task: fix_invalid_geometries
     partial:
-      gdf: ${{ workflow.load_gdf.return }}
+      gdf: ${{ workflow.roi_polygons.return }}
 
   - name: Reproject Gdf
     id: gdf
@@ -94,8 +197,8 @@ workflow:
       - ${{ workflow.gdf.return }}
       max_zoom: 20
 
-  - name: Export Cloudfree Composites
-    id: cloudfree_composites_2
+  - name: Satellite Composite
+    id: satellite_composite
     task: export_cloudfree_composites
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
@@ -109,7 +212,7 @@ workflow:
     id: to_bitmap_layer
     task: composite_to_bitmap_layer
     partial:
-      composite_path: ${{ workflow.cloudfree_composites_2.return }}
+      composite_path: ${{ workflow.satellite_composite.return }}
       vmin: null
       vmax: null
       max_size: 2048
