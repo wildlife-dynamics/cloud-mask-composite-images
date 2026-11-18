@@ -18,7 +18,37 @@
       ],
       "type": "object",
       "description": "Add information that will help to differentiate this workflow from another.",
-      "title": "Set Workflow Details"
+      "title": "Workflow Details"
+    },
+    "er_client_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Data Source"
+    },
+    "gee_connection": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/GoogleEarthEngineConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Google Earth Engine"
     },
     "time_range": {
       "additionalProperties": false,
@@ -51,47 +81,35 @@
       ],
       "type": "object",
       "description": "Choose the period of time to analyze.",
-      "title": "Set Time Range"
+      "title": "Time Range"
     },
-    "gee_connection": {
-      "additionalProperties": false,
-      "properties": {
-        "data_source": {
-          "$ref": "#/$defs/GoogleEarthEngineConnection",
-          "title": "",
-          "description": "Select one of your configured data sources."
-        }
-      },
-      "required": [
-        "data_source"
-      ],
+    "Region of Interest": {
       "type": "object",
-      "title": "Connect to Google Earth Engine"
-    },
-    "Define Region of Interest": {
-      "type": "object",
-      "description": "Define the region of interest for the aerial survey by uploading a geospatial file (GeoJSON, GeoPackage or GeoParquet) that contains the boundary of the area to be surveyed. This file will be loaded and processed to generate the survey lines.",
+      "description": " ",
       "ecoscope:task_group": true,
       "properties": {
-        "retrieve_file_params": {
+        "roi_features": {
           "additionalProperties": false,
           "properties": {
-            "input_method": {
-              "anyOf": [
+            "spatial_features_group_name": {
+              "title": "Spatial Feature Group",
+              "type": "string",
+              "description": "EarthRanger spatial feature group outlining the area to composite. All of its polygons are combined into one region, so pick a group that covers a single area.",
+              "ecoscope:transform": [
                 {
-                  "$ref": "#/$defs/DownloadFile"
-                },
-                {
-                  "$ref": "#/$defs/LocalFile"
+                  "transformer": "EarthRangerEnumResolver",
+                  "transformer_kws": {
+                    "type": "spatial_feature_group",
+                    "depends_on": "properties.er_client_name.properties.data_source.properties.name"
+                  }
                 }
-              ],
-              "default": null,
-              "title": "Input Method",
-              "description": "How to obtain the file: download from a URL or use a local file path"
+              ]
             }
           },
+          "required": [
+            "spatial_features_group_name"
+          ],
           "type": "object",
-          "required": [],
           "title": ""
         }
       }
@@ -287,9 +305,9 @@
       },
       "type": "object",
       "required": [],
-      "title": "Set Base Maps"
+      "title": "Map Base Layers"
     },
-    "cloudfree_composites_2": {
+    "satellite_composite": {
       "additionalProperties": false,
       "properties": {
         "sensor": {
@@ -372,7 +390,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Export Cloudfree Composites"
+      "title": "Satellite Composite"
     },
     "to_bitmap_layer": {
       "additionalProperties": false,
@@ -386,22 +404,24 @@
         "palette": {
           "anyOf": [
             {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/ColormapPalette"
-                },
-                {
-                  "$ref": "#/$defs/CustomPalette"
-                }
-              ]
+              "type": "null",
+              "title": "Default for the band",
+              "description": "Uses a colormap chosen for the band: red-yellow-green (RdYlGn) for NDVI, EVI and NBR, red-blue (RdBu) for NDWI, brown-green (BrBG) for NDMI, Reds for the red band, magma for nir, and viridis for valid_count and anything else."
             },
             {
-              "type": "null"
+              "$ref": "#/$defs/ColormapPalette",
+              "title": "Named colormap",
+              "description": "Choose a ready-made colour scale from the list."
+            },
+            {
+              "$ref": "#/$defs/CustomPalette",
+              "title": "Custom colours",
+              "description": "Enter your own colours, from the lowest value to the highest."
             }
           ],
           "default": null,
           "title": "Palette",
-          "description": "A named colormap or custom hex colours (single bands only). Defaults to a colormap suited to the band, e.g. RdYlGn for NDVI."
+          "description": "Colours used to draw the band on the map. 'Default for the band' picks a scale that suits the band, e.g. red-yellow-green for NDVI. 'Named colormap' lets you choose a ready-made scale such as viridis or Blues. 'Custom colours' takes your own hex colours from low to high. Not used for true_color or false_color, which show the image's own colours."
         },
         "opacity": {
           "default": 0.8,
@@ -418,6 +438,32 @@
     }
   },
   "$defs": {
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "GoogleEarthEngineConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "GoogleEarthEngineConnection",
+      "type": "object"
+    },
     "TimezoneInfo": {
       "properties": {
         "label": {
@@ -446,47 +492,6 @@
       "title": "TimezoneInfo",
       "type": "object"
     },
-    "GoogleEarthEngineConnection": {
-      "properties": {
-        "name": {
-          "title": "Data Source",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "GoogleEarthEngineConnection",
-      "type": "object"
-    },
-    "DownloadFile": {
-      "properties": {
-        "url": {
-          "description": "URL to download a file",
-          "title": "URL",
-          "type": "string"
-        }
-      },
-      "required": [
-        "url"
-      ],
-      "title": "Download from URL",
-      "type": "object"
-    },
-    "LocalFile": {
-      "properties": {
-        "file_path": {
-          "description": "Path to a local file",
-          "title": "Local file path",
-          "type": "string"
-        }
-      },
-      "required": [
-        "file_path"
-      ],
-      "title": "Use local file",
-      "type": "object"
-    },
     "ColormapPalette": {
       "properties": {
         "type_": {
@@ -500,7 +505,7 @@
         },
         "name": {
           "default": "viridis",
-          "description": "Matplotlib colormap name.",
+          "description": "Single-hue scales (Greens, Blues, Reds, YlGn, \u2026) suit values that only go up, such as reflectance or valid_count. Two-sided scales (RdYlGn, BrBG, RdBu, Spectral, PiYG, PuOr) suit indices that run from negative to positive, such as NDVI or NDWI. viridis, cividis, magma, inferno and plasma are readable for colour-blind viewers.",
           "enum": [
             "viridis",
             "cividis",
@@ -524,18 +529,19 @@
             "PiYG",
             "PuOr"
           ],
-          "title": "Name",
+          "title": "Colormap",
           "type": "string"
         },
         "reverse": {
           "default": false,
-          "description": "Flip the colormap so high values get the low-end colour.",
-          "title": "Reverse",
+          "description": "Flip the scale so high values get the low-end colour.",
+          "title": "Reverse colours",
           "type": "boolean"
         }
       },
-      "title": "ColormapPalette",
-      "type": "object"
+      "title": "Named colormap",
+      "type": "object",
+      "description": "Choose a ready-made colour scale from the list."
     },
     "CustomPalette": {
       "properties": {
@@ -549,19 +555,20 @@
           "type": "string"
         },
         "colors": {
-          "description": "Hex colours from low to high values, e.g. ['#f7fcb9', '#31a354'].",
+          "description": "Hex colours from low to high values, e.g. #f7fcb9 then #31a354 for pale yellow to green. Use two or more; values in between are blended.",
           "items": {
             "type": "string"
           },
-          "title": "Colors",
+          "title": "Colours",
           "type": "array"
         }
       },
       "required": [
         "colors"
       ],
-      "title": "CustomPalette",
-      "type": "object"
+      "title": "Custom colours",
+      "type": "object",
+      "description": "Enter your own colours, from the lowest value to the highest."
     }
   },
   "uiSchema": {
@@ -578,7 +585,7 @@
         "timezone"
       ]
     },
-    "cloudfree_composites_2": {
+    "satellite_composite": {
       "ui:order": [
         "sensor",
         "cloud_threshold",
@@ -592,15 +599,37 @@
         "band",
         "palette",
         "opacity"
-      ]
+      ],
+      "palette": {
+        "anyOf": [
+          {},
+          {
+            "ui:options": {
+              "label": false
+            },
+            "type_": {
+              "ui:widget": "hidden"
+            }
+          },
+          {
+            "ui:options": {
+              "label": false
+            },
+            "type_": {
+              "ui:widget": "hidden"
+            }
+          }
+        ]
+      }
     },
     "ui:order": [
       "workflow_details",
-      "time_range",
+      "er_client_name",
       "gee_connection",
-      "Define Region of Interest",
+      "time_range",
+      "Region of Interest",
       "base_maps",
-      "cloudfree_composites_2",
+      "satellite_composite",
       "to_bitmap_layer"
     ]
   },

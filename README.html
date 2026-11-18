@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Cloud-Free Composite Images Workflow</title>
+  <title>Cloud-Masked Composite Images Workflow</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -31,12 +31,12 @@
 </head>
 <body>
 
-<h1 id="cloud-free-composite-images-workflow">Cloud-Free Composite Images Workflow</h1>
-<p>Builds one cloud-free Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel. The clear observations are combined into a single composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
+<h1 id="cloud-masked-composite-images-workflow">Cloud-Masked Composite Images Workflow</h1>
+<p>Builds one cloud-masked Sentinel-2 or Landsat image of your area for a chosen period on Google Earth Engine. Clouds and their shadows are masked pixel by pixel. The clear observations are combined into a single composite with optional spectral indices such as NDVI, and the result is saved as a GeoTIFF and shown on an interactive map.</p>
 <p>Full documentation: <a href="docs/index.html">docs/index.html</a> (User Guide, <a href="docs/technical-guide.html">Technical Guide</a> and Troubleshooting).</p>
 <h2 id="what-it-produces">What it produces</h2>
 <ul>
-<li>A <strong>cloud-free composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
+<li>A <strong>cloud-masked composite GeoTIFF</strong> of the area: the selected reflectance bands, the selected spectral indices, and a <code>valid_count</code> band giving the number of clear observations behind each pixel. 10 m for Sentinel-2, 30 m for Landsat.</li>
 <li>An <strong>interactive map</strong> of one band (NDVI by default) or a true/false-colour view, over Esri topographic and satellite base maps, with a legend.</li>
 <li>A <strong>dashboard</strong> showing the map, with the workflow name and time range.</li>
 </ul>
@@ -143,7 +143,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="export-cloudfree-composites">Export Cloudfree Composites</h3>
+<h3 id="satellite-composite">Satellite Composite</h3>
 <table>
 <thead>
 <tr>

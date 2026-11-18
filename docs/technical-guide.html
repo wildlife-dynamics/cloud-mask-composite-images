@@ -21,7 +21,7 @@
 
   <main>
     <h1>Technical Guide</h1>
-    <p class="lede">How cloud-mask-composite-images turns an area of interest and a time range into a cloud-free satellite composite: the steps it runs, how it masks clouds and builds the composite, how the GeoTIFF is encoded, and how the map overlay is rendered.</p>
+    <p class="lede">How cloud-mask-composite-images turns an area of interest and a time range into a cloud-masked satellite composite: the steps it runs, how it masks clouds and builds the composite, how the GeoTIFF is encoded, and how the map overlay is rendered.</p>
 
     <h2>Contents</h2>
     <ul>
@@ -42,7 +42,7 @@
     <h2 id="overview">Overview</h2>
     <p>The workflow is a Python port of the <a href="https://github.com/EcoDynIZW/GEE-PICX">GEE-PICX</a> approach. In outline:</p>
     <ol>
-      <li>Read the area of interest (ROI) from a vector file, repair its geometries and merge every feature into one shape.</li>
+      <li>Fetch the area of interest (ROI) from an EarthRanger spatial feature group, keep its polygons, repair their geometries and merge every feature into one shape.</li>
       <li>On Google Earth Engine, find the Sentinel-2 or Landsat scenes that overlap the ROI in the time range and are under the scene cloud-cover threshold.</li>
       <li>Mask clouds, cloud shadow and cirrus pixel by pixel in each scene, using the sensor's own quality band.</li>
       <li>Reduce the remaining clear pixels over time to one value per pixel (median by default). Add any spectral indices and a <code>valid_count</code> band.</li>
@@ -52,26 +52,28 @@
     <p>Unlike GEE-PICX, which exports to Google Drive in the background, this workflow downloads the composite while it runs. The GeoTIFF is in the results folder when the run finishes.</p>
 
     <h2 id="steps">Steps</h2>
-    <p>In the order they run. Each step is a task from one of the <a href="#packages">packages below</a>. Every step is skipped if the ROI file is empty or a step it depends on was skipped.</p>
+    <p>In the order they run. Each step is a task from one of the <a href="#packages">packages below</a>. Every step is skipped if the feature group has no polygons or a step it depends on was skipped.</p>
     <table>
       <thead><tr><th>#</th><th>Step</th><th>Task</th><th>What it does here</th></tr></thead>
       <tbody>
-        <tr><td>1</td><td><strong>Load File</strong></td><td><code>load_df</code></td><td>Reads the ROI file (GeoParquet, GeoJSON, GeoPackage, Shapefile, …).</td></tr>
-        <tr><td>2</td><td><strong>Set Base Maps</strong></td><td><code>set_base_maps</code></td><td>Esri World Topo (opacity 1) under Esri World Imagery (opacity 0.5).</td></tr>
-        <tr><td>3</td><td><strong>Set Workflow Details</strong></td><td><code>set_workflow_details</code></td><td>The name shown on the dashboard.</td></tr>
-        <tr><td>4</td><td><strong>Set Groupers</strong></td><td><code>set_groupers</code></td><td>None: the dashboard has a single view.</td></tr>
-        <tr><td>5</td><td><strong>Set Time Range</strong></td><td><code>set_time_range</code></td><td>The period to composite.</td></tr>
-        <tr><td>6</td><td><strong>Connect to Google Earth Engine</strong></td><td><code>set_gee_connection</code></td><td>Returns an authenticated Earth Engine client from the chosen data source.</td></tr>
-        <tr><td>7</td><td><strong>Fix Invalid Geometries</strong></td><td><code>fix_invalid_geometries</code></td><td>Repairs self-intersecting or otherwise invalid polygons so the union in step 10 does not fail.</td></tr>
-        <tr><td>8</td><td><strong>Reproject Gdf</strong></td><td><code>reproject_gdf</code></td><td>Reprojects the ROI to EPSG:4326.</td></tr>
-        <tr><td>9</td><td><strong>View State From Geodataframes</strong></td><td><code>view_state_from_geodataframes</code></td><td>Centres and zooms the map on the ROI.</td></tr>
-        <tr><td>10</td><td><strong>Export Cloudfree Composites</strong></td><td><code>export_cloudfree_composites</code></td><td>Builds the composite on Earth Engine and writes the GeoTIFF. Returns its path.</td></tr>
-        <tr><td>11</td><td><strong>Composite To Bitmap Layer</strong></td><td><code>composite_to_bitmap_layer</code></td><td>Colours the chosen band and embeds it as a PNG map overlay with a legend.</td></tr>
-        <tr><td>12</td><td><strong>Merge Tile Layers</strong></td><td><code>merge_tile_layers</code></td><td>Puts the overlay on top of the base maps.</td></tr>
-        <tr><td>13</td><td><strong>Draw Map</strong></td><td><code>draw_map</code></td><td>Renders the interactive map to HTML, legend bottom-right.</td></tr>
-        <tr><td>14</td><td><strong>Persist Text</strong></td><td><code>persist_text</code></td><td>Saves the map HTML to the results folder.</td></tr>
-        <tr><td>15</td><td><strong>Create Map Widget Single View</strong></td><td><code>create_map_widget_single_view</code></td><td>Wraps the map as a dashboard widget titled <em>Map</em>.</td></tr>
-        <tr><td>16</td><td><strong>Gather Dashboard</strong></td><td><code>gather_dashboard</code></td><td>Assembles the dashboard with the workflow details and time range.</td></tr>
+        <tr><td>1</td><td><strong>Connect to EarthRanger</strong></td><td><code>set_er_connection</code></td><td>The EarthRanger data source the feature group is read from.</td></tr>
+        <tr><td>2</td><td><strong>Region of Interest</strong></td><td><code>get_spatial_features_group</code></td><td>Fetches every feature in the chosen spatial feature group.</td></tr>
+        <tr><td>3</td><td><strong>Keep Polygons</strong></td><td><code>filter_by_geometry_type</code></td><td>Drops points and lines, keeping Polygon and MultiPolygon features.</td></tr>
+        <tr><td>4</td><td><strong>Set Base Maps</strong></td><td><code>set_base_maps</code></td><td>Esri World Topo (opacity 1) under Esri World Imagery (opacity 0.5).</td></tr>
+        <tr><td>5</td><td><strong>Set Workflow Details</strong></td><td><code>set_workflow_details</code></td><td>The name shown on the dashboard.</td></tr>
+        <tr><td>6</td><td><strong>Set Groupers</strong></td><td><code>set_groupers</code></td><td>None: the dashboard has a single view.</td></tr>
+        <tr><td>7</td><td><strong>Set Time Range</strong></td><td><code>set_time_range</code></td><td>The period to composite.</td></tr>
+        <tr><td>8</td><td><strong>Connect to Google Earth Engine</strong></td><td><code>set_gee_connection</code></td><td>Returns an authenticated Earth Engine client from the chosen data source.</td></tr>
+        <tr><td>9</td><td><strong>Fix Invalid Geometries</strong></td><td><code>fix_invalid_geometries</code></td><td>Repairs self-intersecting or otherwise invalid polygons so the union in step 12 does not fail.</td></tr>
+        <tr><td>10</td><td><strong>Reproject Gdf</strong></td><td><code>reproject_gdf</code></td><td>Reprojects the ROI to EPSG:4326.</td></tr>
+        <tr><td>11</td><td><strong>View State From Geodataframes</strong></td><td><code>view_state_from_geodataframes</code></td><td>Centres and zooms the map on the ROI.</td></tr>
+        <tr><td>12</td><td><strong>Satellite Composite</strong></td><td><code>export_cloudfree_composites</code></td><td>Builds the composite on Earth Engine and writes the GeoTIFF. Returns its path.</td></tr>
+        <tr><td>13</td><td><strong>Composite To Bitmap Layer</strong></td><td><code>composite_to_bitmap_layer</code></td><td>Colours the chosen band and embeds it as a PNG map overlay with a legend.</td></tr>
+        <tr><td>14</td><td><strong>Merge Tile Layers</strong></td><td><code>merge_tile_layers</code></td><td>Puts the overlay on top of the base maps.</td></tr>
+        <tr><td>15</td><td><strong>Draw Map</strong></td><td><code>draw_map</code></td><td>Renders the interactive map to HTML, legend bottom-right.</td></tr>
+        <tr><td>16</td><td><strong>Persist Text</strong></td><td><code>persist_text</code></td><td>Saves the map HTML to the results folder.</td></tr>
+        <tr><td>17</td><td><strong>Create Map Widget Single View</strong></td><td><code>create_map_widget_single_view</code></td><td>Wraps the map as a dashboard widget titled <em>Map</em>.</td></tr>
+        <tr><td>18</td><td><strong>Gather Dashboard</strong></td><td><code>gather_dashboard</code></td><td>Assembles the dashboard with the workflow details and time range.</td></tr>
       </tbody>
     </table>
 
@@ -210,8 +212,8 @@ with rasterio.open(path) as src:
     <table>
       <thead><tr><th>Step</th><th>Argument</th><th>Value</th><th>Effect</th></tr></thead>
       <tbody>
-        <tr><td>Export Cloudfree Composites</td><td><code>scale</code></td><td><code>null</code></td><td>10 m for Sentinel-2, 30 m for Landsat</td></tr>
-        <tr><td>Export Cloudfree Composites</td><td><code>crs</code></td><td><code>null</code></td><td>UTM zone of the ROI</td></tr>
+        <tr><td>Satellite Composite</td><td><code>scale</code></td><td><code>null</code></td><td>10 m for Sentinel-2, 30 m for Landsat</td></tr>
+        <tr><td>Satellite Composite</td><td><code>crs</code></td><td><code>null</code></td><td>UTM zone of the ROI</td></tr>
         <tr><td>Composite To Bitmap Layer</td><td><code>vmin</code>, <code>vmax</code></td><td><code>null</code></td><td>2nd–98th percentile stretch</td></tr>
         <tr><td>Composite To Bitmap Layer</td><td><code>max_size</code></td><td><code>2048</code></td><td>Longest side of the overlay image, in pixels</td></tr>
         <tr><td>Reproject Gdf</td><td><code>target_crs</code></td><td><code>4326</code></td><td>ROI in lon/lat</td></tr>
